@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 15699 2019-09-11 21:17:50Z HomeAuto_User $
+# $Id: 88_Timer.pm 15699 2019-09-12 21:17:50Z HomeAuto_User $
 #
 # The module is a timer for executing actions.
 # 2019 - HomeAuto_User & elektron-bbs
@@ -16,6 +16,7 @@ use Data::Dumper qw (Dumper);
 my @action = ("on","off","*");
 #my @names = ("Timer","Year","Month","Day","Hour","Minute","Second","Device or Perl","Aktion","Mon","Tue","Wed","Thur","Fri","Sat","Sun","active","");
 my @names = ("Nr.","Jahr","Monat","Tag","Stunde","Minute","Sekunde","Ger&auml;t oder Bezeichnung","Aktion","Mo","Di","Mi","Do","Fr","Sa","So","aktiv","");
+my $cnt_attr_userattr = 0;
 
 ##########################
 sub Timer_Initialize($) {
@@ -38,7 +39,6 @@ sub Timer_Initialize($) {
 }
 
 ##########################
-
 # Predeclare Variables from other modules may be loaded later from fhem
 our $FW_wname;
 
@@ -104,7 +104,6 @@ sub Timer_Set($$$@) {
 		if ($d =~ /^Timer_(\d)+$/) {
 			$Timers_Count++;
 			$d =~ s/Timer_//;
-			$setList.= "sortTimer:noArg " if ($Timers_Count == 1);
 			$setList.= "deleteTimer:" if ($Timers_Count == 1);
 			$setList.= $d.",";
 		}
@@ -115,6 +114,8 @@ sub Timer_Set($$$@) {
 		$setList.= " saveTimers:noArg";
 	}
 
+	$setList.= " sortTimer:noArg" if ($Timers_Count > 1);
+
 	Log3 $name, 4, "$name: Set | cmd=$cmd" if ($cmd ne "?");
 
 	if ($cmd eq "sortTimer") {
@@ -122,6 +123,7 @@ sub Timer_Set($$$@) {
 		my $userattr_new = "";
 		my @userattr_values;
 		my $timer_nr_new;
+		RemoveInternalTimer($hash, "Timer_Check");
 
 		foreach my $readingsName (keys %{$hash->{READINGS}}) {
 			if ($readingsName =~ /^Timer_(\d+)$/) {
@@ -138,10 +140,11 @@ sub Timer_Set($$$@) {
 			$timer_nr_new = sprintf("%02s",$i + 1);                             # neue Timer-Nummer
 			if ($timers_sort[$i] =~ /^.*\d{2},(.*),(\*),.*,(Timer_\d+)/) {      # filtre * values - Perl Code (* must in S2 - Timer nr old $3)
 				if ($attr{$name}{$3."_set"}) {
+					Log3 $name, 3, "in if ".$timers_sort[$i];				
 					push(@userattr_values,"Timer_$timer_nr_new".",".AttrVal($name, $3."_set",0));  # userattr value in Array with new numbre
-					Timer_delFromUserattr($hash,$3."_set");                                        # delete from userattr
 				}
-				addToDevAttrList($name,"Timer_$timer_nr_new"."_set:textField-long ");            # added to userattr
+				Timer_delFromUserattr($hash,$3."_set:textField-long");                           # delete from userattr (old numbre)
+				addToDevAttrList($name,"Timer_$timer_nr_new"."_set:textField-long ");            # added to userattr (new numbre)
 			}
 			$timers_sort[$i] = substr( substr($timers_sort[$i],index($timers_sort[$i],",")+1) ,0,-9);
 			readingsSingleUpdate($hash, "Timer_".$timer_nr_new , $timers_sort[$i], 1);
@@ -156,6 +159,7 @@ sub Timer_Set($$$@) {
 				CommandAttr($hash,"$name $timer_nr $value_attr");
 			}		
 		}
+		Timer_Check($hash);
 	}
 
 	if ($cmd eq "addTimer") {
@@ -232,9 +236,12 @@ sub Timer_Get($$$@) {
 		if ($cmd2 eq "yes") {
 			my $error = 0;
 			my @lines;
+			RemoveInternalTimer($hash, "Timer_Check");
+
 			open (InputFile,"<./FHEM/lib/$name"."_conf.txt") || return "ERROR: No file $name"."_conf.txt found in ./FHEM/lib directory from FHEM!";
 			while (<InputFile>){
 				chomp ($_);                            # Zeilenende entfernen
+				Log3 $name, 3, "$name: $_";
 				push(@lines,$_);                       # lines in array
 				my @values = split(",",$_);            # split line in array to check
 				$error++ if (scalar(@values) != 17);
@@ -253,7 +260,7 @@ sub Timer_Get($$$@) {
 						}
 					}
 					$error++ if ($i == 6 && $values[$i] % 10 != 0);
-					$error++ if ($i == 8 && not grep /$values[$i]/, @action);
+					$error++ if ($i == 8 && not grep { $values[$i] eq $_ } @action);
 					$error++ if ($i >= 9 && $values[$i] ne "0" && $values[$i] ne "1");
 
 					if ($error != 0) {
@@ -274,6 +281,8 @@ sub Timer_Get($$$@) {
 			}
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
 			FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");
+			Timer_Check($hash);
+
 			return undef;
 		}
 	}
@@ -286,7 +295,6 @@ sub Timer_Attr() {
 	my ($cmd, $name, $attrName, $attrValue) = @_;
 	my $hash = $defs{$name};
 	my $typ = $hash->{TYPE};
-	my $Timer_preselection = AttrVal($name,"Timer_preselection","off");
 
 	if ($cmd eq "set" && $init_done == 1 ) {
 		Log3 $name, 3, "$name: Attr | set $attrName to $attrValue";
@@ -298,12 +306,23 @@ sub Timer_Attr() {
 				Timer_Check($hash);
 			}
 		}
+		
+		if ($attrName =~ /^Timer_\d{2}_set$/) {
+			my $err = perlSyntaxCheck($attrValue, ());   # check PERL Code
+			return $err if($err);
+		}
 	}
 
 	if ($cmd eq "del") {
 		Log3 $name, 3, "$name: Attr | Attributes $attrName deleted";
 		if ($attrName eq "disable") {
 			Timer_Check($hash);
+		}
+
+		if ($attrName eq "userattr") {
+			$cnt_attr_userattr++;
+			return "Please execute again if you want to force the attribute to delete!" if ($cnt_attr_userattr == 1);
+			$cnt_attr_userattr = 0;
 		}
 	}
 }
@@ -455,7 +474,6 @@ sub Timer_FW_Detail($$$$) {
 				$html.= "<td style=\"$border $background text-align:center\"> <INPUT type=\"reset\" onclick=\"pushed_savebutton(".$id.")\" value=\"&#128190;\"/> </td>"; # &#128427; &#128190;
 			}
 		}
-
 		$html.= "</tr>";			## Zeilenende
 	}
 	$html.= "</table>";			## Tabellenende
@@ -488,16 +506,6 @@ sub Timer_FW_Detail($$$$) {
 	</script>';
 
 	return $html;
-}
-
-##########################
-sub FW_pushed_checkBoxActive {
-	my $name = shift;
-	my $hash = $defs{$name};
-	my $timer_active = shift;	# Timer-Nr, aktiv=1
-	my @timer_active = split("," , $timer_active);
-	my $timerReading = ReadingsVal($name, "Timer_".sprintf("%02s", $timer_active[0]), 0);
-	Log3 $name, 3, "$name: FW_pushed_checkBoxActive $timer_active[0] $timer_active[1] $timerReading";
 }
 
 ### for function from pushed_savebutton ###
@@ -565,27 +573,41 @@ sub FW_pushed_savebutton {
 
 	readingsDelete($hash,"Timer_".sprintf("%02s", $timer)."_set") if ($selected_buttons[8] ne "*" && ReadingsVal($name, "Timer_".sprintf("%02s", $timer)."_set", 0) ne "0");
 
+	my $oldValue = ReadingsVal($name,"Timer_".sprintf("%02s", $selected_buttons[0]) ,0);
+	my @Value_split = split(/,/ , $oldValue);
+	$oldValue = $Value_split[7];
+	my $newValue = substr($selected_buttons,(index($selected_buttons,",") + 1));
+	@Value_split = split(/,/ , $newValue);
+	$newValue = $Value_split[7];
+
 	readingsBeginUpdate($hash);
-	readingsBulkUpdate($hash, "state" , "Timer ".$selected_buttons[0]." saved", 0);
 	readingsBulkUpdate($hash, "Timer_".sprintf("%02s", $selected_buttons[0]) , substr($selected_buttons,(index($selected_buttons,",") + 1)));
 
+	my $state = "Timer ".$selected_buttons[0]." saved";
 	my $userattrName = "Timer_".sprintf("%02s", $selected_buttons[0])."_set:textField-long";
-	if ($selected_buttons[8] eq "*") {
-		readingsBulkUpdate($hash, "state" , "Timer_".sprintf("%02s", $selected_buttons[0])." is save and added to userattr", 0);
+	my $reload = 0;
+
+	if (($oldValue eq "on" || $oldValue eq "off") && $newValue eq "*") {
+		$state = "Timer_".sprintf("%02s", $selected_buttons[0])." is save and added to userattr";
 		addToDevAttrList($name,$userattrName);
-	} elsif ($selected_buttons[8] eq "on" || $selected_buttons[8] eq "off") {
-		Timer_delFromUserattr($hash,$userattrName) if ($attr{$name}{userattr});
+		addStructChange("modify", $name, "attr $name userattr");                             # note with question mark
+		$reload++;
 	}
+
+	if ($oldValue eq "*" && ($newValue eq "on" || $newValue eq "off")) {
+		$state = "Timer_".sprintf("%02s", $selected_buttons[0])." is save and deleted from userattr";
+		Timer_delFromUserattr($hash,$userattrName) if ($attr{$name}{userattr});
+		addStructChange("modify", $name, "attr $name userattr");                             # note with question mark
+		$reload++;
+	}
+
+	readingsBulkUpdate($hash, "state" , $state, 1);
 	readingsEndUpdate($hash, 1);
 
-	if ($FW_room_dupl) {
-		FW_directNotify("FILTER=room=$FW_room_dupl", "#FHEMWEB:WEB", "location.reload('true')", "");
-	} else {
-		FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");    # need to view question mark
-	}
+	FW_directNotify("FILTER=room=$FW_room_dupl", "#FHEMWEB:WEB", "location.reload('true')", "") if ($FW_room_dupl);
+	FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "") if ($reload != 0);    # need to view question mark
 
 	Timer_Check($hash) if ($selected_buttons[16] eq "1" && ReadingsVal($name, "internalTimer", "stop") eq "stop");
-	addStructChange("modify", $name, "attr $name userattr");                             # note with question mark
 
 	return;
 }
@@ -642,12 +664,13 @@ sub Timer_Check($) {
 				Log3 $name, 4, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7)." (".$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
 				if ($set == 1) {
 					Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
-					fhem("set $values[6] $values[7]") if ($Simulation_only ne "on" && $values[7] ne "*");
+					CommandSet($hash, $values[6]." ".$values[7]) if ($Simulation_only ne "on" && $values[7] ne "*");
 					my $state = "$d set $values[6] $values[7] accomplished";
 					if ($Simulation_only ne "on" && $values[7] eq "*") {
 						if ($attr{$name}{$d."_set"}) {
-							Log3 $name, 4, "$name: use userattr: ".$attr{$name}{$d."_set"};
-							fhem("".$attr{$name}{$d."_set"}."");		# { Log 1, "3333333: TEST" }
+							Log3 $name, 5, "$name: $d - exec at command: ".$attr{$name}{$d."_set"};
+							my $ret = AnalyzeCommandChain(undef, SemicolonEscape($attr{$name}{$d."_set"}));     # { Log 1, "3333333: TEST" }
+							Log3 $name, 3, "$name: $d\_set - ERROR: $ret" if($ret);
 						} else {
 							$state = "$d missing userattr to work!";
 						}
