@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 15699 2019-09-12 21:17:50Z HomeAuto_User $
+# $Id: 88_Timer.pm 15699 2019-09-16 21:17:50Z HomeAuto_User $
 #
 # The module is a timer for executing actions.
 # 2019 - HomeAuto_User & elektron-bbs
@@ -13,8 +13,7 @@ use Time::HiRes qw(gettimeofday);
 
 use Data::Dumper qw (Dumper);
 
-my @action = ("on","off","*");
-#my @names = ("Timer","Year","Month","Day","Hour","Minute","Second","Device or Perl","Aktion","Mon","Tue","Wed","Thur","Fri","Sat","Sun","active","");
+my @action = ("on","off","Def");
 my @names = ("Nr.","Jahr","Monat","Tag","Stunde","Minute","Sekunde","Ger&auml;t oder Bezeichnung","Aktion","Mo","Di","Mi","Do","Fr","Sa","So","aktiv","");
 my $cnt_attr_userattr = 0;
 
@@ -23,7 +22,7 @@ sub Timer_Initialize($) {
 	my ($hash) = @_;
 
 	$hash->{AttrFn}       = "Timer_Attr";
-	$hash->{AttrList}     = "disable:0,1 Show_DeviceInfo:alias,comment Simulation_only:on,off Timer_preselection:on,off Border_Cell:on,off Border_Table:on,off $readingFnAttributes ";
+	$hash->{AttrList}     = "disable:0,1 Show_DeviceInfo:alias,comment Timer_preselection:on,off Border_Cell:on,off Border_Table:on,off $readingFnAttributes ";
 	$hash->{DefFn}        = "Timer_Define";
 	$hash->{SetFn}        = "Timer_Set";
 	$hash->{GetFn}        = "Timer_Get";
@@ -128,8 +127,8 @@ sub Timer_Set($$$@) {
 		foreach my $readingsName (keys %{$hash->{READINGS}}) {
 			if ($readingsName =~ /^Timer_(\d+)$/) {
 				my $value = ReadingsVal($name, $readingsName, 0);
-				$value =~ /^.*\d{2},(.*),(on|off|\*)/;
-				push(@timers_unsortet,$1.",".ReadingsVal($name, $readingsName, 0).",$readingsName");	 # unsort Reading Wert in Array -> dfhdf,alle,alle,alle,alle,alle,00,dfhdf,*,1,1,1,1,1,1,1,0,Timer_14
+				$value =~ /^.*\d{2},(.*),(on|off|Def)/;
+				push(@timers_unsortet,$1.",".ReadingsVal($name, $readingsName, 0).",$readingsName");	 # unsort Reading Wert in Array
 				readingsDelete($hash, $readingsName);										          # Timer loeschen
 			}
 		}
@@ -138,7 +137,7 @@ sub Timer_Set($$$@) {
 
 		for (my $i=0; $i<scalar(@timers_sort); $i++) {
 			$timer_nr_new = sprintf("%02s",$i + 1);                             # neue Timer-Nummer
-			if ($timers_sort[$i] =~ /^.*\d{2},(.*),(\*),.*,(Timer_\d+)/) {      # filtre * values - Perl Code (* must in S2 - Timer nr old $3)
+			if ($timers_sort[$i] =~ /^.*\d{2},(.*),(Def),.*,(Timer_\d+)/) {      # filtre Def values - Perl Code (Def must in S2 - Timer nr old $3)
 				if ($attr{$name}{$3."_set"}) {
 					Log3 $name, 3, "in if ".$timers_sort[$i];				
 					push(@userattr_values,"Timer_$timer_nr_new".",".AttrVal($name, $3."_set",0));  # userattr value in Array with new numbre
@@ -190,7 +189,15 @@ sub Timer_Set($$$@) {
 	if ($cmd eq "saveTimers") {
 		open(SaveDoc, '>', "./FHEM/lib/$name"."_conf.txt") || return "ERROR: file $name"."_conf.txt can not open!";
 			foreach my $d (sort keys %{$hash->{READINGS}}) {
-				print SaveDoc $1.",".$hash->{READINGS}->{$d}->{VAL}."\n" if ($d =~ /^Timer_(\d+)$/);
+				print SaveDoc "Timer_".$1.",".$hash->{READINGS}->{$d}->{VAL}."\n" if ($d =~ /^Timer_(\d+)$/);
+			}
+
+			print SaveDoc "\n";
+
+			foreach my $e (sort keys %{$attr{$name}}) {
+				my $LE = "";
+				$LE = "\n" if ($attr{$name}{$e} !~ /\n$/);
+				print SaveDoc $e.",".$attr{$name}{$e}.$LE if ($e =~ /^Timer_(\d+)_set$/);
 			}
 		close(SaveDoc);
 	}
@@ -227,6 +234,7 @@ sub Timer_Get($$$@) {
 	my ( $hash, $name, $cmd, @a ) = @_;
 	my $list = "loadTimers:no,yes";
 	my $cmd2 = $a[0];
+	my $Timer_cnt_name = -1;
 
 	if ($cmd eq "loadTimers") {
 		if ($cmd2 eq "no") {
@@ -235,50 +243,84 @@ sub Timer_Get($$$@) {
 
 		if ($cmd2 eq "yes") {
 			my $error = 0;
-			my @lines;
+			my @lines_readings;
+			my @attr_values;
+			my @attr_values_names;
 			RemoveInternalTimer($hash, "Timer_Check");
 
 			open (InputFile,"<./FHEM/lib/$name"."_conf.txt") || return "ERROR: No file $name"."_conf.txt found in ./FHEM/lib directory from FHEM!";
 			while (<InputFile>){
-				chomp ($_);                            # Zeilenende entfernen
-				Log3 $name, 3, "$name: $_";
-				push(@lines,$_);                       # lines in array
-				my @values = split(",",$_);            # split line in array to check
-				$error++ if (scalar(@values) != 17);
-				for (my $i=0;$i<@values;$i++) {
-					$error++ if ($i == 0 && $values[0] !~ /^\d{2}$/);
-					$error++ if ($i == 1 && $values[1] !~ /^\d{4}$|^alle$/);
-					if ($i >= 2 && $i <= 5 && $values[$i] ne "alle") {
-						$error++ if ($i >= 2 && $i <= 3 && $values[$i] !~ /^\d{2}$/);
-						$error++ if ($i == 2 && ($values[2] * 1) < 1 && ($values[2] * 1) > 12);
-						$error++ if ($i == 3 && ($values[3] * 1) < 1 && ($values[3] * 1) > 31);
+				if ($_ =~ /^Timer_\d{2},/) {
+					chomp ($_);                            # Zeilenende entfernen
+					push(@lines_readings,$_);              # lines in array
+					my @values = split(",",$_);            # split line in array to check
+					$error++ if (scalar(@values) != 17);
+					for (my $i=0;$i<@values;$i++) {
+						$error++ if ($i == 0 && $values[0] !~ /^Timer_\d{2}$/);
+						$error++ if ($i == 1 && $values[1] !~ /^\d{4}$|^alle$/);
+						if ($i >= 2 && $i <= 5 && $values[$i] ne "alle") {
+							$error++ if ($i >= 2 && $i <= 3 && $values[$i] !~ /^\d{2}$/);
+							$error++ if ($i == 2 && ($values[2] * 1) < 1 && ($values[2] * 1) > 12);
+							$error++ if ($i == 3 && ($values[3] * 1) < 1 && ($values[3] * 1) > 31);
 
-						if ($i >= 4 && $i <= 5 && $values[$i] ne "SA" && $values[$i] ne "SU") {
-							$error++ if ($i >= 4 && $i <= 5 && $values[$i] !~ /^\d{2}$/);
-							$error++ if ($i == 4 && ($values[4] * 1) > 23);
-							$error++ if ($i == 5 && ($values[5] * 1) > 59);
+							if ($i >= 4 && $i <= 5 && $values[$i] ne "SA" && $values[$i] ne "SU") {
+								$error++ if ($i >= 4 && $i <= 5 && $values[$i] !~ /^\d{2}$/);
+								$error++ if ($i == 4 && ($values[4] * 1) > 23);
+								$error++ if ($i == 5 && ($values[5] * 1) > 59);
+							}
+						}
+						$error++ if ($i == 6 && $values[$i] % 10 != 0);
+						$error++ if ($i == 8 && not grep { $values[$i] eq $_ } @action);
+						$error++ if ($i >= 9 && $values[$i] ne "0" && $values[$i] ne "1");
+
+						if ($error != 0) {
+							close InputFile;
+							Timer_Check($hash);
+							return "ERROR: your file is NOT valid! ($error)";
 						}
 					}
-					$error++ if ($i == 6 && $values[$i] % 10 != 0);
-					$error++ if ($i == 8 && not grep { $values[$i] eq $_ } @action);
-					$error++ if ($i >= 9 && $values[$i] ne "0" && $values[$i] ne "1");
-
-					if ($error != 0) {
-						close InputFile;
-						return "ERROR: your file is NOT valid! ($error)";
+				}
+				
+				if ($_ =~ /^Timer_\d{2}_set,/) {
+					$Timer_cnt_name++;
+					push(@attr_values_names, substr($_,0,12));
+					push(@attr_values, substr($_,13));
+				} elsif ($_ !~ /^Timer_\d{2},/) {
+					$attr_values[$Timer_cnt_name].= $_ if ($Timer_cnt_name >= 0);
+					if ($_ =~ /.*}.*/){                                               # letzte } Klammer finden
+						my $err = perlSyntaxCheck($attr_values[$Timer_cnt_name], ());   # check PERL Code
+						if($err) {
+							$err = "ERROR: your file is NOT valid! \n \n".$err;
+							close InputFile;
+							Timer_Check($hash);
+							return $err;					
+						}
 					}
 				}
 			}
 			close InputFile;
-
+			
 			foreach my $d (sort keys %{$hash->{READINGS}}) {
 				readingsDelete($hash, $d) if ($d =~ /^Timer_(\d+)$/);
 			}
 
-			foreach my $e (@lines) {
-				my $Timer_nr = substr($e,0,2);
-				readingsSingleUpdate($hash, "Timer_$Timer_nr" , substr($e,3,length($e)-3), 1);
+			foreach my $e (@lines_readings) {
+				my $Timer_nr = substr($e,0,8);
+				readingsSingleUpdate($hash, "$Timer_nr" , substr($e,9,length($e)-9), 1) if ($e =~ /^Timer_\d{2},/);
 			}
+
+			foreach my $f (sort keys %{$attr{$name}}) {
+				if ($f =~ /^Timer_(\d+)_set$/) {
+					CommandDeleteAttr($hash, $name." ".$f);
+					delFromDevAttrList($name, $f.":textField-long");
+				}
+			}
+			
+			for (my $i=0;$i<@attr_values;$i++) {
+				addToDevAttrList($name,$attr_values_names[$i].":textField-long");      # added to userattr
+				$attr{$name}{$attr_values_names[$i]} = $attr_values[$i];               # set attr value
+			}
+
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
 			FW_directNotify("FILTER=$name", "#FHEMWEB:WEB", "location.reload('true')", "");
 			Timer_Check($hash);
@@ -320,9 +362,11 @@ sub Timer_Attr() {
 		}
 
 		if ($attrName eq "userattr") {
-			$cnt_attr_userattr++;
-			return "Please execute again if you want to force the attribute to delete!" if ($cnt_attr_userattr == 1);
-			$cnt_attr_userattr = 0;
+			if (exists $attr{$FW_wname}{confirmDelete} && $attr{$FW_wname}{confirmDelete} == 0) {
+				$cnt_attr_userattr++;
+				return "Please execute again if you want to force the attribute to delete!" if ($cnt_attr_userattr == 1);
+				$cnt_attr_userattr = 0;
+			}
 		}
 	}
 }
@@ -446,7 +490,7 @@ sub Timer_FW_Detail($$$$) {
 				my $comment = "";
 				$comment = AttrVal($select_Value[$spalte-2],"alias","") if (AttrVal($name,"Show_DeviceInfo","") eq "alias");
 				$comment = AttrVal($select_Value[$spalte-2],"comment","") if (AttrVal($name,"Show_DeviceInfo","") eq "comment");
-				$html.= "<td style=\"$border $background\"><input type=\"text\" id=\"".$id."\" value=\"".$select_Value[$spalte-2]."\"><br><small>$comment</small></td>";
+				$html.= "<td style=\"$border $background\"><input type=\"text\" placeholder=\"Timer_".($zeile + 1)."\" id=\"".$id."\" value=\"".$select_Value[$spalte-2]."\"><br><small>$comment</small></td>";
 			}
 
 			if ($spalte == 9) {			## DropDown-Liste Aktion
@@ -560,18 +604,18 @@ sub FW_pushed_savebutton {
 					Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i]." is checked and exists";
 				}
 			}
-		}
-
-		if ($i == 8) {
-			Log3 $name, 5, "$name: FW_pushed_savebutton | ".$names[$i]." is NOT exists";
-			return "ERROR: device not exists or no description! NO timer saved!" if ($devicefound == 0 && ($selected_buttons[$i] eq "on" || $selected_buttons[$i] eq "off"));
+			
+			if ($devicefound == 0 && $selected_buttons[$i+1] eq "on" || $selected_buttons[$i+1] eq "off") {
+				Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i]." is NOT exists";
+				return "ERROR: device not exists or no description! NO timer saved!";
+			}
 		}
 	}
 
 	return "ERROR: The time is in the past. Please set a time in the future!" if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0);
 	return "ERROR: The next switching point is too small!" if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60);
 
-	readingsDelete($hash,"Timer_".sprintf("%02s", $timer)."_set") if ($selected_buttons[8] ne "*" && ReadingsVal($name, "Timer_".sprintf("%02s", $timer)."_set", 0) ne "0");
+	readingsDelete($hash,"Timer_".sprintf("%02s", $timer)."_set") if ($selected_buttons[8] ne "Def" && ReadingsVal($name, "Timer_".sprintf("%02s", $timer)."_set", 0) ne "0");
 
 	my $oldValue = ReadingsVal($name,"Timer_".sprintf("%02s", $selected_buttons[0]) ,0);
 	my @Value_split = split(/,/ , $oldValue);
@@ -580,6 +624,11 @@ sub FW_pushed_savebutton {
 	@Value_split = split(/,/ , $newValue);
 	$newValue = $Value_split[7];
 
+	if ($Value_split[6] eq "" && $Value_split[7] eq "Def") {                        # standard name, if no name set in Def option
+		my $replace = "Timer_".sprintf("%02s", $selected_buttons[0]);
+		$selected_buttons =~ s/,,/,$replace,/g;
+	}
+	
 	readingsBeginUpdate($hash);
 	readingsBulkUpdate($hash, "Timer_".sprintf("%02s", $selected_buttons[0]) , substr($selected_buttons,(index($selected_buttons,",") + 1)));
 
@@ -587,17 +636,17 @@ sub FW_pushed_savebutton {
 	my $userattrName = "Timer_".sprintf("%02s", $selected_buttons[0])."_set:textField-long";
 	my $reload = 0;
 
-	if (($oldValue eq "on" || $oldValue eq "off") && $newValue eq "*") {
+	if (($oldValue eq "on" || $oldValue eq "off") && $newValue eq "Def") {
 		$state = "Timer_".sprintf("%02s", $selected_buttons[0])." is save and added to userattr";
 		addToDevAttrList($name,$userattrName);
-		addStructChange("modify", $name, "attr $name userattr");                             # note with question mark
+		addStructChange("modify", $name, "attr $name userattr");                     # note with question mark
 		$reload++;
 	}
 
-	if ($oldValue eq "*" && ($newValue eq "on" || $newValue eq "off")) {
+	if ($oldValue eq "Def" && ($newValue eq "on" || $newValue eq "off")) {
 		$state = "Timer_".sprintf("%02s", $selected_buttons[0])." is save and deleted from userattr";
 		Timer_delFromUserattr($hash,$userattrName) if ($attr{$name}{userattr});
-		addStructChange("modify", $name, "attr $name userattr");                             # note with question mark
+		addStructChange("modify", $name, "attr $name userattr");                     # note with question mark
 		$reload++;
 	}
 
@@ -633,7 +682,6 @@ sub Timer_Check($) {
 	$dayOfWeek = 7 if ($dayOfWeek eq "0");								# Sonntag nach hinten (Position 14 im Array)
 	my $intervall = 60;                                   # Intervall to start new InternalTimer (standard)			
 	my $cnt_activ = 0;                                    # counter for activ timers
-	my $Simulation_only = AttrVal($name,"Simulation_only","off");
 	my ($seconds, $microseconds) = gettimeofday();
 	my @sunriseValues = split(":" , sunrise_abs("REAL"));	# Sonnenaufgang (06:34:24) splitted in array
 	my @sunsetValues = split(":" , sunset_abs("REAL"));		# Sonnenuntergang (19:34:24) splitted in array
@@ -664,19 +712,18 @@ sub Timer_Check($) {
 				Log3 $name, 4, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7)." (".$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
 				if ($set == 1) {
 					Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
-					CommandSet($hash, $values[6]." ".$values[7]) if ($Simulation_only ne "on" && $values[7] ne "*");
+					CommandSet($hash, $values[6]." ".$values[7]) if ($values[7] ne "Def");
 					my $state = "$d set $values[6] $values[7] accomplished";
-					if ($Simulation_only ne "on" && $values[7] eq "*") {
+					if ($values[7] eq "Def") {
 						if ($attr{$name}{$d."_set"}) {
 							Log3 $name, 5, "$name: $d - exec at command: ".$attr{$name}{$d."_set"};
-							my $ret = AnalyzeCommandChain(undef, SemicolonEscape($attr{$name}{$d."_set"}));     # { Log 1, "3333333: TEST" }
+							my $ret = AnalyzeCommandChain(undef, SemicolonEscape($attr{$name}{$d."_set"}));
 							Log3 $name, 3, "$name: $d\_set - ERROR: $ret" if($ret);
 						} else {
 							$state = "$d missing userattr to work!";
 						}
 					}
 					readingsSingleUpdate($hash, "state" , "$state", 1);
-					Log3 $name, 3, "$name: $d - set $values[6] $values[7]" if ($Simulation_only eq "on" && $values[5] eq $timestamp_values[5]);
 				}
 			}
 		}
@@ -725,8 +772,21 @@ sub Timer_Check($) {
 <ul>
 The timer module is a programmable timer.<br><br>
 In Fonted you can define new times and actions. The smallest possible definition of an action is a 10 second interval.<br>
-Use the drop-down menus to make the settings. Only after pressing the <code> Speichern </ code> button the setting is accepted.<br>
-Defined options are displayed with a tick <b>&#10003;</b> and Deactivations are displayed with <b>&#10007;</b>.
+You can use the dropdown menu to make the settings for the time switch point. Only after clicking on the <code> Save </code> button will the setting be taken over.
+<br><br>
+<u>Programmable actions are currently:</u><br>
+<ul>
+	<li><code> on | off</code> - The states must be supported by the device</li>
+	<li><code>Def</code> - for a PERL code or a FHEM command * <br><br>
+	<ul><u>example:</u>
+	<li><code>{ Log 1, "Timer: now switch" }</code> (PERL code)</li>
+	<li><code>update</code> (FHEM command)</li></ul>
+	</li>
+</ul>
+<br>
+
+<b>*</b> To do this, enter the code to be executed in the respective attribute. example: <code>Timer_03_set</code>
+
 <br><br><br>
 
 <b>Define</b><br>
@@ -744,7 +804,7 @@ Defined options are displayed with a tick <b>&#10003;</b> and Deactivations are 
 		<a name="deleteTimer"></a>
 		<li>deleteTimer: Deletes the selected timer</li><a name=""></a>
 		<a name="saveTimers"></a>
-		<li>saveTimers: Saves the set timers in a file (<code>Timers.txt</code>)</li>
+		<li>saveTimers: Saves the settings in file <code>Timers.txt</code> on directory <code>./FHEM/lib</code>.</li>
 		<a name="sortTimer"></a>
 		<li>sortTimer: Sorts the saved timers alphabetically.</li>
 	</ul><br><br>
@@ -765,8 +825,7 @@ Defined options are displayed with a tick <b>&#10003;</b> and Deactivations are 
 	Sets the input values ​​for a new timer to the current time. (on | off = default)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
 	Shows the additional information (alias | comment, standard off)</li><a name=" "></a></ul><br>
-	<ul><li><a name="Simulation_only">Simulation_only</a><br>
-	Turns off the action to be taken and writes a log output. (on | off = standard)</li><a name=" "></a></ul><br>
+	<br>
 
 	<b><i>Generierte Readings</i></b><br>
 	<li>Timer_xx<br>
@@ -785,8 +844,21 @@ Defined options are displayed with a tick <b>&#10003;</b> and Deactivations are 
 <ul>
 Das Timer Modul ist eine programmierbare Schaltuhr.<br><br>
 Im Fonted k&ouml;nnen Sie neue Zeitpunkte und Aktionen definieren. Die kleinstm&ouml;gliche Definition einer Aktion ist ein 10 Sekunden Intervall.<br>
-Mittels der Dropdown Menüs k&ouml;nnen Sie die Einstellungen vornehmen. Erst nach dem dr&uuml;cken auf den <code>Speichern</code> Knopf wird die Einstellung &uuml;bernommen.<br>
-Gesetzte Optionen werden mit einem Haken <b>&#10003;</b> dargestellt und Deaktivierungen werden mittels <b>&#10007;</b> dargestellt.
+Mittels der Dropdown Men&uuml;s k&ouml;nnen Sie die Einstellungen für den Zeitschaltpunkt vornehmen. Erst nach dem dr&uuml;cken auf den <code>Speichern</code> Knopf wird die Einstellung &uuml;bernommen.
+<br><br>
+<u>Programmierbare Aktionen sind derzeit:</u><br>
+<ul>
+	<li><code> on | off</code> - Die Zust&auml;nde m&uuml;ssen von dem zu schaltenden Device unterst&uuml;tzt werden</li>
+	<li><code>Def</code> - für einen PERL-Code oder ein FHEM Kommando * <br><br>
+	<ul><u>Beispiel:</u>
+	<li><code>{ Log 1, "Timer: schaltet jetzt" }</code> (PERL-Code)</li>
+	<li><code>update</code> (FHEM-Kommando)</li></ul>
+	</li>
+</ul>
+<br>
+
+<b>*</b> Hierfür hinterlegen Sie den auszuf&uuml;hrenden Code in das jeweilige Attribut. Bsp.: <code>Timer_03_set</code>
+
 <br><br><br>
 
 <b>Define</b><br>
@@ -804,7 +876,7 @@ Gesetzte Optionen werden mit einem Haken <b>&#10003;</b> dargestellt und Deaktiv
 		<a name="deleteTimer"></a>
 		<li>deleteTimer: L&ouml;scht den ausgew&auml;hlten Timer.</li><a name=""></a>
 		<a name="saveTimers"></a>
-		<li>saveTimers: Speichert die eingestellten Timer in einer Datei. (<code>Timers.txt</code>)</li>
+		<li>saveTimers: Speichert die eingestellten Timer in der Datei <code>Timers.txt</code> im Verzeichnis <code>./FHEM/lib</code>. </li>
 		<a name="sortTimer"></a>
 		<li>sortTimer: Sortiert die gespeicherten Timer alphabetisch.</li>
 	</ul><br><br>
@@ -825,8 +897,7 @@ Gesetzte Optionen werden mit einem Haken <b>&#10003;</b> dargestellt und Deaktiv
 	Setzt die Eingabewerte bei einem neuen Timer auf die aktuelle Zeit. (on | off = standard)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
 	Blendet die Zusatzinformation ein. (alias | comment, standard off)</li><a name=" "></a></ul><br>
-	<ul><li><a name="Simulation_only">Simulation_only</a><br>
-	Schaltet die auszuführende Aktion aus und gibt nur eine Logausgabe wieder. (on | off = standard)</li><a name=" "></a></ul><br>
+	<br>
 
 	<b><i>Generierte Readings</i></b><br>
 	<li>Timer_xx<br>
