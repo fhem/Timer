@@ -2,6 +2,7 @@
 
 ## Used branching model
 * Master branch: Production version (https://github.com/fhem/Timer)
+* Devel branch: Latest development version
 
 ## Community support
 The FHEM Forum is available [here](https://forum.fhem.de/) for general support.
