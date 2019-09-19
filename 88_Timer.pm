@@ -926,9 +926,9 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 <h3>Timer Modul</h3>
 <ul>
 Das Timer Modul ist eine programmierbare Schaltuhr.<br><br>
-Im Fonted k&ouml;nnen Sie neue Zeitpunkte und Aktionen definieren. Die kleinstm&ouml;gliche Definition einer Aktion ist ein 10 Sekunden Intervall.<br>
+Im Frontend k&ouml;nnen Sie neue Zeitpunkte und Aktionen definieren. Die kleinstm&ouml;gliche Definition einer Aktion ist ein 10 Sekunden Intervall.<br>
 Mittels der Dropdown Men&uuml;s k&ouml;nnen Sie die Einstellungen für den Zeitschaltpunkt vornehmen. Erst nach dem dr&uuml;cken auf den <code>Speichern</code> Knopf wird die Einstellung &uuml;bernommen.<br><br>
-In den DropDown-Liste stehen jeweils die Zahlenwerte f&uuml;r Jahr	/ Monat	/ Tag	/ Stunde / Minute / Sekunde zur Auswahl.<br>
+In der DropDown-Liste stehen jeweils die Zahlenwerte f&uuml;r Jahr	/ Monat	/ Tag	/ Stunde / Minute / Sekunde zur Auswahl.<br>
 Zus&auml;tzlich k&ouml;nnen Sie in der Spalte Stunde und Minute die Auswahl <code>SA</code> und <code>SU</code> nutzen. Diese K&uuml;rzel stehen f&uuml;r den Zeitpunkt Sonnenaufgang und Sonnenuntergang.<br>
 Wenn sie Beispielsweise bei Minute <code>SU</code> ausw&auml;hlen, so haben Sie die Minuten des Sonnenuntergang als Wert gesetzt. Sobald Sie bei Stunde und Minute den Wert auf <code>SU</code>
 stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem Standort. <u><i>(F&uuml;r diese Berechnung sind die FHEM globalen Attribute latitude und longitude notwendig!)</u></i>
@@ -1003,7 +1003,7 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	<li>Timer_xx<br>
 	Speicherwerte des einzelnen Timers</li><br>
 	<li>internalTimer<br>
-	Zustand des internen Timers (stop oder oder Intervall bis zum n&auml;chsten Aufruf)</li><br>
+	Zustand des internen Timers (stop oder Intervall bis zum n&auml;chsten Aufruf)</li><br>
 
 </ul>
 =end html_DE
