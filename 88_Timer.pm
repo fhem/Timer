@@ -2,10 +2,21 @@
 # $Id: 88_Timer.pm 20189 2019-09-90 21:17:50Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
+# Github - FHEM Home Automation System
+# https://github.com/fhem/Timer
+#
 # FHEM Forum: Automatisierung
+# https://forum.fhem.de/index.php/board,20.0.html | https://forum.fhem.de/index.php/topic,103848.msg976039.html#new
 #
 # 2019 - HomeAuto_User & elektron-bbs
 #################################################################
+# notes:
+# - 1. Es sollte vermieden werden direkt in die Hash's zu schreiben wenn dafür entsprechende FHEM Perlfunktionen zur Verfügung stehen.
+#      Beispiel Attribute. $attr{$name}{'Attribuname'} entsprechend durch CommandAttr() & dazugehörige Bedingungen durch AttrVal() ersetzen
+# - 2. $hash->{STATE} sollte gar nicht gesetzt werden da somit der Userwunsch stateFormat überschrieben wird. Daher immer mittels readingsSingleUpdate oder readingsBulkUpdate setzen
+# - 3. Es wird aktuell versucht neue Module mit package um zu setzen. package sind in Perl das was Klassen unter C++ und Java sind. Es gibt eine Import und Export Funktionen damit man Funktionen anderer Module importieren oder wenn nötig seine eigenen Exportieren kann.
+#################################################################
+
 
 package main;
 
@@ -83,18 +94,17 @@ sub Timer_Define($$) {
 				Log3 $filelogName, 2, "$name: ERROR: $ret";
 			} else {
 				### Attributes ###
-				$attr{$filelogName}{room} = $autocreateDeviceRoom;
-				$attr{$filelogName}{logtype} = 'text';
-				$attr{$name}{room} = $autocreateDeviceRoom;
+				CommandAttr($hash,"$filelogName room $autocreateDeviceRoom");
+				CommandAttr($hash,"$filelogName logtype text");
+				CommandAttr($hash,"$name room $autocreateDeviceRoom");
 			}
 		}
 
 		### Attributes ###
-		$attr{$name}{room} = "$typ" if (not exists($attr{$name}{room}) );				# set room, if only undef --> new def
+		CommandAttr($hash,"$name room $typ") if (not exists($attr{$name}{room}) );				# set room, if only undef --> new def
 	}
 
 	### default value´s ###
-	$hash->{STATE} = "Defined";
 	readingsBeginUpdate($hash);
 	readingsBulkUpdate($hash, "state" , "Defined");
 	readingsBulkUpdate($hash, "internalTimer" , "stop");
@@ -320,7 +330,7 @@ sub Timer_Get($$$@) {
 				CommandDeleteAttr($hash, $name." ".$f) if ($f =~ /^Timer_(\d+)_set$/);
 			}
 
-			my @userattr_values = split(" ", $attr{$name}{userattr});
+			my @userattr_values = split(" ", AttrVal($name, "userattr", "none"));
 			for (my $i=0;$i<@userattr_values;$i++) {                 # delete userattr values Timer_xx_set:textField-long ...
 				delFromDevAttrList($name, $userattr_values[$i]) if ($userattr_values[$i] =~ /^Timer_(\d+)_set:textField-long$/);
 			}
@@ -332,7 +342,7 @@ sub Timer_Get($$$@) {
 
 			for (my $i=0;$i<@attr_values;$i++) {                     # write new userattr and attr value
 				addToDevAttrList($name,$attr_values_names[$i].":textField-long");      # added to userattr
-				$attr{$name}{$attr_values_names[$i]} = $attr_values[$i];               # set attr value
+				CommandAttr($hash,"$name $attr_values_names[$i] $attr_values[$i]");    # set attr value
 			}
 
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
