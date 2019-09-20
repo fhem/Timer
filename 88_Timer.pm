@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20189 2019-09-90 21:17:50Z HomeAuto_User $
+# $Id: 88_Timer.pm 20189 2019-09-20 21:17:50Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -11,10 +11,7 @@
 # 2019 - HomeAuto_User & elektron-bbs
 #################################################################
 # notes:
-# - 1. Es sollte vermieden werden direkt in die Hash's zu schreiben wenn dafür entsprechende FHEM Perlfunktionen zur Verfügung stehen.
-#      Beispiel Attribute. $attr{$name}{'Attribuname'} entsprechend durch CommandAttr() & dazugehörige Bedingungen durch AttrVal() ersetzen
-# - 2. $hash->{STATE} sollte gar nicht gesetzt werden da somit der Userwunsch stateFormat überschrieben wird. Daher immer mittels readingsSingleUpdate oder readingsBulkUpdate setzen
-# - 3. Es wird aktuell versucht neue Module mit package um zu setzen. package sind in Perl das was Klassen unter C++ und Java sind. Es gibt eine Import und Export Funktionen damit man Funktionen anderer Module importieren oder wenn nötig seine eigenen Exportieren kann.
+# - Module mit package um zu setzen
 #################################################################
 
 
@@ -26,17 +23,20 @@ use Time::HiRes qw(gettimeofday);
 
 my @action = ("on","off","Def");
 my @names;
+my @designations;
 my $description_all;
 my $cnt_attr_userattr = 0;
 
 if (!$attr{global}{language} || $attr{global}{language} eq "EN") {
+	@designations = ("sunrise","sunset","local time","","SR","SS");
+	$description_all = "all"; # using in RegEx
 	@names = ("No.","Year","Month","Day","Hour","Minute","Second","Device or label","Action","Mon","Tue","Wed","Thu","Fri","Sat","Sun","active","");
-	$description_all = "all";
 }
 
 if ($attr{global}{language} && $attr{global}{language} eq "DE") {
+	@designations = ("Sonnenaufgang","Sonnenuntergang","lokale Zeit","Uhr","SA","SU");
+	$description_all = "alle"; # using in RegEx
 	@names = ("Nr.","Jahr","Monat","Tag","Stunde","Minute","Sekunde","Ger&auml;t oder Bezeichnung","Aktion","Mo","Di","Mi","Do","Fr","Sa","So","aktiv","");
-	$description_all = "alle";
 }
 
 ##########################
@@ -49,6 +49,7 @@ sub Timer_Initialize($) {
 													"Timer_preselection:on,off ".
 													"Table_Border_Cell:on,off ".
 													"Table_Border:on,off ".
+													"Table_Header_with_time:on,off ".
 													"Table_Style:on,off ".
 													"Table_Size_TextBox:15,20,25,30,35,40,45,50 ".
 													"Table_View_in_room:on,off ".
@@ -77,7 +78,7 @@ sub Timer_Define($$) {
 	my $typ = $hash->{TYPE};		## Modulname, mit welchem die Definition angelegt wurde
 	my $filelogName = "FileLog_$name";
 	my ($cmd, $ret);
-	my ($autocreateFilelog, $autocreateHash, $autocreateName, $autocreateDeviceRoom, $autocreateWeblinkRoom) = ('./log/' . $name . '-%Y-%m.log', undef, 'autocreate', $typ, $typ);
+	my ($autocreateFilelog, $autocreateHash, $autocreateName, $autocreateDeviceRoom, $autocreateWeblinkRoom) = ('%L' . $name . '-%Y-%m.log', undef, 'autocreate', $typ, $typ);
 	$hash->{NOTIFYDEV} = "global,TYPE=$typ";
 
 	return "Usage: define <name> $name"  if(@arg != 2);
@@ -85,7 +86,7 @@ sub Timer_Define($$) {
 	if ($init_done) {
 		if (!defined(AttrVal($autocreateName, "disable", undef)) && !exists($defs{$filelogName})) {
 			### create FileLog ###
-			$autocreateFilelog = $attr{$autocreateName}{filelog} if (exists $attr{$autocreateName}{filelog});
+			$autocreateFilelog = AttrVal($autocreateName, "filelog", undef) if (defined AttrVal($autocreateName, "filelog", undef));
 			$autocreateFilelog =~ s/%NAME/$name/g;
 			$cmd = "$filelogName FileLog $autocreateFilelog $name";
 			Log3 $filelogName, 2, "$name: define $cmd";
@@ -101,7 +102,7 @@ sub Timer_Define($$) {
 		}
 
 		### Attributes ###
-		CommandAttr($hash,"$name room $typ") if (not exists($attr{$name}{room}) );				# set room, if only undef --> new def
+		CommandAttr($hash,"$name room $typ") if (!defined AttrVal($name, "room", undef));				# set room, if only undef --> new def
 	}
 
 	### default value´s ###
@@ -205,7 +206,7 @@ sub Timer_Set($$$@) {
 			my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
 			$value = $year + 1900 .",".sprintf("%02s", ($mon + 1)).",".sprintf("%02s", $mday).",".sprintf("%02s", $hour).",".sprintf("%02s", $min).",00,,on,1,1,1,1,1,1,1,0";
 		} else {
-			$value = "description_all,description_all,description_all,description_all,description_all,00,,on,1,1,1,1,1,1,1,0";
+			$value = "$description_all,$description_all,$description_all,$description_all,$description_all,00,,on,1,1,1,1,1,1,1,0";
 		}
 
 		$Timers_Count = $Timers_Count + 1 if ($Timers_diff == 0);
@@ -222,8 +223,8 @@ sub Timer_Set($$$@) {
 
 			foreach my $e (sort keys %{$attr{$name}}) {
 				my $LE = "";
-				$LE = "\n" if ($attr{$name}{$e} !~ /\n$/);
-				print SaveDoc $e.",".$attr{$name}{$e}.$LE if ($e =~ /^Timer_(\d+)_set$/);
+				$LE = "\n" if (AttrVal($name, $e, undef) !~ /\n$/);
+				print SaveDoc $e.",".AttrVal($name, $e, undef).$LE if ($e =~ /^Timer_(\d+)_set$/);
 			}
 		close(SaveDoc);
 	}
@@ -277,6 +278,7 @@ sub Timer_Get($$$@) {
 					push(@lines_readings,$_);              # lines in array
 					my @values = split(",",$_);            # split line in array to check
 					$error++ if (scalar(@values) != 17);
+					push(@attr_values_names, $values[0]."_set") if($values[8] eq "Def");
 					for (my $i=0;$i<@values;$i++) {
 						$error++ if ($i == 0 && $values[0] !~ /^Timer_\d{2}$/);
 						$error++ if ($i == 1 && $values[1] !~ /^\d{4}$|^$description_all$/);
@@ -285,7 +287,7 @@ sub Timer_Get($$$@) {
 							$error++ if ($i == 2 && ($values[2] * 1) < 1 && ($values[2] * 1) > 12);
 							$error++ if ($i == 3 && ($values[3] * 1) < 1 && ($values[3] * 1) > 31);
 
-							if ($i >= 4 && $i <= 5 && $values[$i] ne "SA" && $values[$i] ne "SU") {
+							if ($i >= 4 && $i <= 5 && $values[$i] ne $designations[4] && $values[$i] ne $designations[5]) { # SA -> 4 SU -> 5
 								$error++ if ($i >= 4 && $i <= 5 && $values[$i] !~ /^\d{2}$/);
 								$error++ if ($i == 4 && ($values[4] * 1) > 23);
 								$error++ if ($i == 5 && ($values[5] * 1) > 59);
@@ -302,10 +304,9 @@ sub Timer_Get($$$@) {
 						}
 					}
 				}
-				
+
 				if ($_ =~ /^Timer_\d{2}_set,/) {
 					$Timer_cnt_name++;
-					push(@attr_values_names, substr($_,0,12));
 					push(@attr_values, substr($_,13));
 				} elsif ($_ !~ /^Timer_\d{2},/) {
 					$attr_values[$Timer_cnt_name].= $_ if ($Timer_cnt_name >= 0);
@@ -340,9 +341,12 @@ sub Timer_Get($$$@) {
 				readingsSingleUpdate($hash, "$Timer_nr" , substr($e,9,length($e)-9), 1) if ($e =~ /^Timer_\d{2},/);
 			}
 
-			for (my $i=0;$i<@attr_values;$i++) {                     # write new userattr and attr value
-				addToDevAttrList($name,$attr_values_names[$i].":textField-long");      # added to userattr
-				CommandAttr($hash,"$name $attr_values_names[$i] $attr_values[$i]");    # set attr value
+			for (my $i=0;$i<@attr_values_names;$i++) {               # write new userattr
+				addToDevAttrList($name,$attr_values_names[$i].":textField-long"); 
+			}
+
+			for (my $i=0;$i<@attr_values;$i++) {                     # write new attr value
+				CommandAttr($hash,"$name $attr_values_names[$i] $attr_values[$i]");
 			}
 
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
@@ -386,7 +390,7 @@ sub Timer_Attr() {
 		}
 
 		if ($attrName eq "userattr") {
-			if (exists $attr{$FW_wname}{confirmDelete} && $attr{$FW_wname}{confirmDelete} == 0) {
+			if (defined AttrVal($FW_wname, "confirmDelete", undef) && AttrVal($FW_wname, "confirmDelete", undef) == 0) {
 				$cnt_attr_userattr++;
 				return "Please execute again if you want to force the attribute to delete!" if ($cnt_attr_userattr == 1);
 				$cnt_attr_userattr = 0;
@@ -433,6 +437,7 @@ sub Timer_FW_Detail($$$$) {
 	my $Timers_Count = 0;
 	my $Table_Border = AttrVal($name,"Table_Border","off");
 	my $Table_Border_Cell = AttrVal($name,"Table_Border_Cell","off");
+	my $Table_Header_with_time = AttrVal($name,"Table_Header_with_time","off");
 	my $Table_Size_TextBox = AttrVal($name,"Table_Size_TextBox",20);
 	my $Table_Style = AttrVal($name,"Table_Style","off");
 	my $Table_View_in_room = AttrVal($name,"Table_View_in_room","on");
@@ -443,6 +448,8 @@ sub Timer_FW_Detail($$$$) {
 	my $FW_room_dupl = $FW_room;
 	my @timer_nr;
 	my $cnt_max = scalar(@names);
+
+	return $html if((!AttrVal($name, "room", undef) && $FW_room ne "") || ($Table_View_in_room eq "off" && $FW_room ne ""));
 
 	if ($Table_Style eq "on") {
 		### style via CSS for Checkbox ###
@@ -493,8 +500,7 @@ sub Timer_FW_Detail($$$$) {
 	}
 	$style_code2 = "border:2px solid #00FF00;" if($Table_Border eq "on");
 
-	return $html if((!$attr{$name}{room} && $FW_room ne "") || ($Table_View_in_room eq "off" && $FW_room ne ""));
-	$html.= "<br>" if($FW_room_dupl ne "");
+	$html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs("REAL")." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs("REAL")." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq "on");
 	$html.= "<div id=\"table\"><table class=\"block wide\" cellspacing=\"0\" style=\"$style_code2\">";
 
 	#         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv speichern
@@ -546,10 +552,10 @@ sub Timer_FW_Detail($$$$) {
 				$html.= "<td align=\"center\" style=\"$style_code1 $style_background\"><select id=\"".$id."\">";	# id need for java script
 				$html.= "<option>$description_all</option>" if ($spalte <= 6);				# Jahr, Monat, Tag, Stunde, Minute
 				if ($spalte == 5 || $spalte == 6) {												# Stunde, Minute
-					$selected = $select_Value[$spalte-2] eq "SA" ? "selected=\"selected\"" : "";
-					$html.= "<option $selected value=\"SA\">SA</option>";		# Sonnenaufgang
-					$selected = $select_Value[$spalte-2] eq "SU" ? "selected=\"selected\"" : "";
-					$html.= "<option $selected value=\"SU\">SU</option>";		# Sonnenuntergang
+					$selected = $select_Value[$spalte-2] eq $designations[4] ? "selected=\"selected\"" : "";
+					$html.= "<option $selected value=\"".$designations[4]."\">".$designations[4]."</option>";		# Sonnenaufgang -> pos 4 array
+					$selected = $select_Value[$spalte-2] eq $designations[5] ? "selected=\"selected\"" : "";
+					$html.= "<option $selected value=\"".$designations[5]."\">".$designations[5]."</option>";		# Sonnenuntergang -> pos 5 array
 				}
 				for(my $k = $start ; $k <= $stop ; $k += $step) {
 					$selected = $select_Value[$spalte-2] eq sprintf("%02s", $k) ? "selected=\"selected\"" : "";
@@ -658,8 +664,8 @@ sub FW_pushed_savebutton {
 
 	for(my $i = 0;$i < $cnt_names;$i++) {
 		Log3 $name, 5, "$name: FW_pushed_savebutton | ".$names[$i]." -> ".$selected_buttons[$i];
-		## to set time to check input ##
-		if ($i >= 1 && $i <=6 && ( $selected_buttons[$i] ne "$description_all" && $selected_buttons[$i] ne "SA" && $selected_buttons[$i] ne "SU" )) {
+		## to set time to check input ## SA -> pos 4 array | SU -> pos 5 array ##
+		if ($i >= 1 && $i <=6 && ( $selected_buttons[$i] ne "$description_all" && $selected_buttons[$i] ne $designations[4] && $selected_buttons[$i] ne $designations[5] )) {
 			$sec = $selected_buttons[$i] if ($i == 6);
 			$min = $selected_buttons[$i] if ($i == 5);
 			$hour = $selected_buttons[$i] if ($i == 4);
@@ -772,10 +778,10 @@ sub Timer_Check($) {
 			my $set = 1;
 			if ($values[15] == 1) {                                 # Timer aktiv
 				$cnt_activ++;
-				$values[3] = $sunriseValues[0] if $values[3] eq "SA";	# Stunde Sonnenaufgang
-				$values[4] = $sunriseValues[1] if $values[4] eq "SA";	# Minute Sonnenaufgang
-				$values[3] = $sunsetValues[0] if $values[3] eq "SU";	# Stunde Sonnenuntergang
-				$values[4] = $sunsetValues[1] if $values[4] eq "SU";	# Stunde Sonnenuntergang
+				$values[3] = $sunriseValues[0] if $values[3] eq $designations[4];	# Stunde | Sonnenaufgang -> pos 4 array
+				$values[4] = $sunriseValues[1] if $values[4] eq $designations[4];	# Minute | Sonnenaufgang -> pos 4 array
+				$values[3] = $sunsetValues[0] if $values[3] eq $designations[5];	# Stunde | Sonnenuntergang -> pos 5 array
+				$values[4] = $sunsetValues[1] if $values[4] eq $designations[5];	# Stunde | Sonnenuntergang -> pos 5 array
 				for (my $i = 0;$i < 5;$i++) {													# Jahr, Monat, Tag, Stunde, Minute
 					$set = 0 if ($values[$i] ne "$description_all" && $values[$i] ne $timestamp_values[$i]);
 				}
@@ -789,9 +795,9 @@ sub Timer_Check($) {
 					CommandSet($hash, $values[6]." ".$values[7]) if ($values[7] ne "Def");
 					$state = "$d set $values[6] $values[7] accomplished";
 					if ($values[7] eq "Def") {
-						if ($attr{$name}{$d."_set"}) {
-							Log3 $name, 5, "$name: $d - exec at command: ".$attr{$name}{$d."_set"};
-							my $ret = AnalyzeCommandChain(undef, SemicolonEscape($attr{$name}{$d."_set"}));
+						if (AttrVal($name, $d."_set", undef)) {
+							Log3 $name, 5, "$name: $d - exec at command: ".AttrVal($name, $d."_set", undef);
+							my $ret = AnalyzeCommandChain(undef, SemicolonEscape(AttrVal($name, $d."_set", undef)));
 							Log3 $name, 3, "$name: $d\_set - ERROR: $ret" if($ret);
 						} else {
 							$state = "$d missing userattr to work!";
@@ -847,11 +853,11 @@ sub Timer_Check($) {
 <h3>Timer Modul</h3>
 <ul>
 The timer module is a programmable timer.<br><br>
-In Fonted you can define new times and actions. The smallest possible definition of an action is a 10 second interval.<br>
+In Frontend you can define new times and actions. The smallest possible definition of an action is a 10 second interval.<br>
 You can use the dropdown menu to make the settings for the time switch point. Only after clicking on the <code> Save </code> button will the setting be taken over.
 In the drop-down list, the numerical values ​​for year / month / day / hour / minute / second are available for selection.<br><br>
-In addition, you can use the selection <code> SA </code> and <code> SU </code> in the hour and minute column. These rumps represent the time of sunrise and sunset.<br>
-For example, if you select at minute <code> SU </code>, you have set the minutes of the sunset as the value. As soon as you set the value to <code> SU </code> at hour and minute
+In addition, you can use the selection <code> SR </code> and <code> SS </code> in the hour and minute column. These rumps represent the time of sunrise and sunset.<br>
+For example, if you select at minute <code> SS </code>, you have set the minutes of the sunset as the value. As soon as you set the value to <code> SS </code> at hour and minute
 the timer uses the calculated sunset time at your location. <u><i>(For this calculation the FHEM global attributes latitude and longitude are necessary!)</u></i>
 
 <br><br>
@@ -862,14 +868,23 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	<ul><u>example for Def:</u>
 	<li><code>{ Log 1, "Timer: now switch" }</code> (PERL code)</li>
 	<li><code>update</code> (FHEM command)</li></ul>
-	<li><code>trigger Timer state:ins Log geschrieben</code> (FHEM-Kommando)</li></ul>
+	<li><code>trigger Timer state:ins Log geschrieben</code> (FHEM-Kommando)</li>
 	</li>
 </ul>
 <br>
 
 <b>*</b> To do this, enter the code to be executed in the respective attribute. example: <code>Timer_03_set</code>
 
-<br><br><br>
+<br><br>
+<u>Interval switching of the timer is only possible in the following variants:</u><br>
+<ul><li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
+   <li>hourly, define second + minute and set all other values ​​(hour, day, month, year) to <code>all</code></li>
+	 <li>daily, define second + minute + hour and set all other values ​​(day, month, year) to <code>all</code></li>
+	 <li>monthly, define second + minute + hour + day and set all other values ​​(month, year) to <code>all</code></li>
+	 <li>annually, define second + minute + hour + day + month and set the value (year) to <code>all</code></li>
+	 <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
+	 <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li></ul>
+<br><br>
 
 <b>Define</b><br>
 	<ul><code>define &lt;NAME&gt; Timer</code><br><br>
@@ -907,24 +922,29 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	Shows the table border. (on | off = default)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Border_Cell">Table_Border_Cell</a><br>
 	Shows the cell frame. (on | off = default)</li><a name=" "></a></ul><br>
+	<ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
+	Shows or hides the sunrise and sunset with the local time above the table. (on | off, standard off)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
 	Correction value to change the length of the text box for the device name / designation. (default 20)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Style">Table_Style</a><br>
 	Turns on the defined table style. (on | off, default off)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_View_in_room">Table_View_in_room</a><br>
 	Toggles the tables UI in the room view on or off. (on | off, standard on)<br>
-	<small><i>In the room <code> Unsorted </ code> the table UI is always switched off!</i></small></li><a name=" "></a></ul><br>
+	<small><i>In the room <code> Unsorted </code> the table UI is always switched off!</i></small></li><a name=" "></a></ul><br>
 	<ul><li><a name="Timer_preselection">Timer_preselection</a><br>
 	Sets the input values ​​for a new timer to the current time. (on | off = default)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
 	Shows the additional information (alias | comment, default off)</li><a name=" "></a></ul><br>
 	<br>
 
-	<b><i>Generierte Readings</i></b><br>
-	<li>Timer_xx<br>
+<b><i>Generierte Readings</i></b><br>
+	<ul><li>Timer_xx<br>
 	Memory values ​​of the individual timer</li><br>
 	<li>internalTimer<br>
-	State of the internal timer (stop or Interval until the next call)</li><br>
+	State of the internal timer (stop or Interval until the next call)</li><br><br></ul>
+
+<b><i><u>Hints:</u></i></b><br>
+<ul><li>Entries in the system logfile like: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> say that the timer has recalculated the time.</li></ul>
 
 </ul>
 =end html
@@ -958,7 +978,16 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 
 <b>*</b> Hierfür hinterlegen Sie den auszuf&uuml;hrenden Code in das jeweilige Attribut. Bsp.: <code>Timer_03_set</code>
 
-<br><br><br>
+<br><br>
+<u>Eine Intervallschaltung des Timer ist nur m&ouml;glich in folgenden Varianten:</u><br>
+<ul><li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+   <li>st&uuml;ndlich, Sekunde + Minute definieren und alle anderen Werte (Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+	 <li>t&auml;glich, Sekunde + Minute + Stunde definieren und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+	 <li>monatlich, Sekunde + Minute + Stunde + Tag definieren und alle anderen Werte (Monat, Jahr) auf <code>alle</code> setzen</li>
+	 <li>j&auml;hrlich, Sekunde + Minute + Stunde + Tag + Monat definieren und den Wert (Jahr) auf <code>alle</code> setzen</li>
+	 <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+	 <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li></ul>
+<br><br>
 
 <b>Define</b><br>
 	<ul><code>define &lt;NAME&gt; Timer</code><br><br>
@@ -996,6 +1025,8 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	Blendet den Tabellenrahmen ein. (on | off, standard off)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Border_Cell">Table_Border_Cell</a><br>
 	Blendet den Cellrahmen ein. (on | off, standard off)</li><a name=" "></a></ul><br>
+	<ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
+	Blendet den Sonnenauf und Sonnenuntergang mit der lokalen Zeit über der Tabelle ein oder aus. (on | off, standard off)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
 	Korrekturwert um die L&auml;nge der Textbox für die Ger&auml;tenamen / Bezeichung zu ver&auml;ndern. (standard 20)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Table_Style">Table_Style</a><br>
@@ -1009,11 +1040,14 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	Blendet die Zusatzinformation ein. (alias | comment, standard off)</li><a name=" "></a></ul><br>
 	<br>
 
-	<b><i>Generierte Readings</i></b><br>
-	<li>Timer_xx<br>
+<b><i>Generierte Readings</i></b><br>
+	<ul><li>Timer_xx<br>
 	Speicherwerte des einzelnen Timers</li><br>
 	<li>internalTimer<br>
-	Zustand des internen Timers (stop oder Intervall bis zum n&auml;chsten Aufruf)</li><br>
+	Zustand des internen Timers (stop oder Intervall bis zum n&auml;chsten Aufruf)</li><br><br></ul>
+
+<b><i><u>Hinweise:</u></i></b><br>
+<ul><li>Eintr&auml;ge im Systemlogfile wie: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> sagen aus, das der Timer die Zeit neu berechnet hat.</li></ul>
 
 </ul>
 =end html_DE
