@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20216 2019-09-21 08:59:58Z HomeAuto_User $
+# $Id: 88_Timer.pm 20222 2019-09-21 08:59:58Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -147,10 +147,13 @@ sub Timer_Set($$$@) {
 
 	if ($cmd eq "sortTimer") {
 		my @timers_unsortet;
-		my $userattr_new = "";
 		my @userattr_values;
 		my @attr_values_names;
 		my $timer_nr_new;
+		my $array_diff = 0;             # difference, Timer can be sorted >= 1
+		my $array_diff_cnt1 = 0;        # need to check 1 + 1
+		my $array_diff_cnt2 = 0;        # need to check 1 + 1
+		
 		RemoveInternalTimer($hash, "Timer_Check");
 
 		foreach my $readingsName (sort keys %{$hash->{READINGS}}) {
@@ -158,11 +161,13 @@ sub Timer_Set($$$@) {
 				my $value = ReadingsVal($name, $readingsName, 0);
 				$value =~ /^.*\d{2},(.*),(on|off|Def)/;
 				push(@timers_unsortet,$1.",".ReadingsVal($name, $readingsName, 0).",$readingsName");   # unsort Reading Wert in Array
+				$array_diff_cnt1++;
+				$array_diff_cnt2 = substr($readingsName,-2) * 1;
+				$array_diff = 1 if ($array_diff_cnt1 != $array_diff_cnt2 && $array_diff == 0);
 			}
 		}
 
 		my @timers_sort = sort @timers_unsortet;                              # Timer in neues Array sortieren
-		my $array_diff = 0;
 
 		for (my $i=0; $i<scalar(@timers_unsortet); $i++) {
 			$array_diff++ if ($timers_unsortet[$i] ne $timers_sort[$i]);
