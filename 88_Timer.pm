@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20189 2019-09-20 21:17:50Z HomeAuto_User $
+# $Id: 88_Timer.pm 20216 2019-09-21 08:59:58Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -11,7 +11,7 @@
 # 2019 - HomeAuto_User & elektron-bbs
 #################################################################
 # notes:
-# - Module mit package um zu setzen
+# - module mit package umsetzen
 #################################################################
 
 
@@ -29,13 +29,13 @@ my $cnt_attr_userattr = 0;
 
 if (!$attr{global}{language} || $attr{global}{language} eq "EN") {
 	@designations = ("sunrise","sunset","local time","","SR","SS");
-	$description_all = "all"; # using in RegEx
+	$description_all = "all";     # using in RegEx
 	@names = ("No.","Year","Month","Day","Hour","Minute","Second","Device or label","Action","Mon","Tue","Wed","Thu","Fri","Sat","Sun","active","");
 }
 
 if ($attr{global}{language} && $attr{global}{language} eq "DE") {
 	@designations = ("Sonnenaufgang","Sonnenuntergang","lokale Zeit","Uhr","SA","SU");
-	$description_all = "alle"; # using in RegEx
+	$description_all = "alle";   # using in RegEx
 	@names = ("Nr.","Jahr","Monat","Tag","Stunde","Minute","Sekunde","Ger&auml;t oder Bezeichnung","Aktion","Mo","Di","Mi","Do","Fr","Sa","So","aktiv","");
 }
 
@@ -74,8 +74,8 @@ our $FW_wname;
 sub Timer_Define($$) {
 	my ($hash, $def) = @_;
 	my @arg = split("[ \t][ \t]*", $def);
-	my $name = $arg[0];					## Definitionsname, mit dem das Gerät angelegt wurde
-	my $typ = $hash->{TYPE};		## Modulname, mit welchem die Definition angelegt wurde
+	my $name = $arg[0];                    ## Definitionsname, mit dem das Gerät angelegt wurde
+	my $typ = $hash->{TYPE};               ## Modulname, mit welchem die Definition angelegt wurde
 	my $filelogName = "FileLog_$name";
 	my ($cmd, $ret);
 	my ($autocreateFilelog, $autocreateHash, $autocreateName, $autocreateDeviceRoom, $autocreateWeblinkRoom) = ('%L' . $name . '-%Y-%m.log', undef, 'autocreate', $typ, $typ);
@@ -149,32 +149,49 @@ sub Timer_Set($$$@) {
 		my @timers_unsortet;
 		my $userattr_new = "";
 		my @userattr_values;
+		my @attr_values_names;
 		my $timer_nr_new;
 		RemoveInternalTimer($hash, "Timer_Check");
 
-		foreach my $readingsName (keys %{$hash->{READINGS}}) {
+		foreach my $readingsName (sort keys %{$hash->{READINGS}}) {
 			if ($readingsName =~ /^Timer_(\d+)$/) {
 				my $value = ReadingsVal($name, $readingsName, 0);
 				$value =~ /^.*\d{2},(.*),(on|off|Def)/;
-				push(@timers_unsortet,$1.",".ReadingsVal($name, $readingsName, 0).",$readingsName");	 # unsort Reading Wert in Array
-				readingsDelete($hash, $readingsName);										          # Timer loeschen
+				push(@timers_unsortet,$1.",".ReadingsVal($name, $readingsName, 0).",$readingsName");   # unsort Reading Wert in Array
 			}
 		}
 
 		my @timers_sort = sort @timers_unsortet;                              # Timer in neues Array sortieren
+		my $array_diff = 0;
+
+		for (my $i=0; $i<scalar(@timers_unsortet); $i++) {
+			$array_diff++ if ($timers_unsortet[$i] ne $timers_sort[$i]);
+		}
+		return "cancellation! No sorting necessary." if ($array_diff == 0);   # check, need action continues
+
+		for (my $i=0; $i<scalar(@timers_sort); $i++) {
+			readingsDelete($hash, substr($timers_sort[$i],-8));                 # Readings Timer loeschen
+		}
 
 		for (my $i=0; $i<scalar(@timers_sort); $i++) {
 			$timer_nr_new = sprintf("%02s",$i + 1);                             # neue Timer-Nummer
 			if ($timers_sort[$i] =~ /^.*\d{2},(.*),(Def),.*,(Timer_\d+)/) {     # filtre Def values - Perl Code (Def must in S2 - Timer nr old $3)
-				if ($attr{$name}{$3."_set"}) {
-					Log3 $name, 3, "in if ".$timers_sort[$i];				
+				Log3 $name, 4, "$name: Set | $cmd: ".$timers_sort[$i];
+				if (defined AttrVal($name, $3."_set", undef)) {
+					Log3 $name, 4, "$name: Set | $cmd: ".$3." remember values";
 					push(@userattr_values,"Timer_$timer_nr_new".",".AttrVal($name, $3."_set",0));  # userattr value in Array with new numbre
 				}
 				Timer_delFromUserattr($hash,$3."_set:textField-long");                           # delete from userattr (old numbre)
-				addToDevAttrList($name,"Timer_$timer_nr_new"."_set:textField-long ");            # added to userattr (new numbre)
+				Log3 $name, 4, "$name: Set | $cmd: added to array attr_values_names -> "."Timer_$timer_nr_new"."_set:textField-long";
+				push(@attr_values_names, "Timer_$timer_nr_new"."_set:textField-long");
 			}
 			$timers_sort[$i] = substr( substr($timers_sort[$i],index($timers_sort[$i],",")+1) ,0,-9);
 			readingsSingleUpdate($hash, "Timer_".$timer_nr_new , $timers_sort[$i], 1);
+		}
+
+		for (my $i=0; $i<scalar(@attr_values_names); $i++) {
+			Log3 $name, 4, "$name: Set | $cmd: from array to attrib userattr -> $attr_values_names[$i]";
+			addToDevAttrList($name,$attr_values_names[$i]);                     # added to userattr (new numbre)
 		}
 
 		addStructChange("modify", $name, "attr $name userattr");              # note with question mark
@@ -184,7 +201,7 @@ sub Timer_Set($$$@) {
 				my $timer_nr = substr($userattr_values[$i],0,8)."_set";
 				my $value_attr = substr($userattr_values[$i],index($userattr_values[$i],",")+1);
 				CommandAttr($hash,"$name $timer_nr $value_attr");
-			}		
+			}
 		}
 		Timer_Check($hash);
 	}
@@ -316,7 +333,7 @@ sub Timer_Get($$$@) {
 							$err = "ERROR: your file is NOT valid! \n \n".$err;
 							close InputFile;
 							Timer_Check($hash);
-							return $err;					
+							return $err;
 						}
 					}
 				}
@@ -420,7 +437,7 @@ sub Timer_Notify($$) {
 	my $events = deviceEvents($dev_hash, 1);
 
 	if($devName eq "global" && grep(m/^INITIALIZED|REREADCFG$/, @{$events}) && $typ eq "Timer") {
-		Log3 $name, 4, "$name: Notify is running and starting $name";
+		Log3 $name, 5, "$name: Notify is running and starting $name";
 		Timer_Check($hash);
 	}
 
@@ -490,7 +507,7 @@ sub Timer_FW_Detail($$$$) {
 		</style>';
 	}
 
-	Log3 $name, 4, "$name: attr2html is running";
+	Log3 $name, 5, "$name: attr2html is running";
 
 	foreach my $d (sort keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_\d+$/) {
@@ -550,8 +567,8 @@ sub Timer_FW_Detail($$$$) {
 
 				# Log3 $name, 3, "$name: Zeile $zeile, id $id, select";
 				$html.= "<td align=\"center\" style=\"$style_code1 $style_background\"><select id=\"".$id."\">";	# id need for java script
-				$html.= "<option>$description_all</option>" if ($spalte <= 6);				# Jahr, Monat, Tag, Stunde, Minute
-				if ($spalte == 5 || $spalte == 6) {												# Stunde, Minute
+				$html.= "<option>$description_all</option>" if ($spalte <= 6);     # Jahr, Monat, Tag, Stunde, Minute
+				if ($spalte == 5 || $spalte == 6) {                                # Stunde, Minute
 					$selected = $select_Value[$spalte-2] eq $designations[4] ? "selected=\"selected\"" : "";
 					$html.= "<option $selected value=\"".$designations[4]."\">".$designations[4]."</option>";		# Sonnenaufgang -> pos 4 array
 					$selected = $select_Value[$spalte-2] eq $designations[5] ? "selected=\"selected\"" : "";
@@ -648,8 +665,8 @@ sub FW_pushed_savebutton {
 	my $timestamp = TimeNow();                              # Time now -> 2016-02-16 19:34:24
 	my @timestamp_values = split(/-|\s|:/ , $timestamp);    # Time now splitted
 	my ($sec, $min, $hour, $mday, $month, $year) = ($timestamp_values[5], $timestamp_values[4], $timestamp_values[3], $timestamp_values[2], $timestamp_values[1], $timestamp_values[0]);
-	
-	Log3 $name, 4, "$name: FW_pushed_savebutton is running";
+
+	Log3 $name, 5, "$name: FW_pushed_savebutton is running";
 
 	foreach my $d (sort keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_(\d+)$/) {
@@ -724,7 +741,7 @@ sub FW_pushed_savebutton {
 
 	if ($oldValue eq "Def" && ($newValue eq "on" || $newValue eq "off")) {
 		$state = "Timer_".sprintf("%02s", $selected_buttons[0])." is save and deleted from userattr";
-		Timer_delFromUserattr($hash,$userattrName) if ($attr{$name}{userattr});
+		Timer_delFromUserattr($hash,$userattrName) if (AttrVal($name, "userattr", undef));
 		addStructChange("modify", $name, "attr $name userattr");                     # note with question mark
 		$reload++;
 	}
@@ -746,7 +763,7 @@ sub Timer_delFromUserattr($$) {
 	my $deleteTimer = shift;
 	my $name = $hash->{NAME};
 
-	if ($attr{$name}{userattr} =~ /$deleteTimer/) {
+	if (AttrVal($name, "userattr", undef) =~ /$deleteTimer/) {
 		delFromDevAttrList($name, $deleteTimer);
 		Log3 $name, 3, "$name: delete $deleteTimer from userattr Attributes";
 	}
@@ -759,15 +776,15 @@ sub Timer_Check($) {
 	my @timestamp_values = split(/-|\s|:/ , TimeNow());		# Time now (2016-02-16 19:34:24) splitted in array
 	my $dayOfWeek = strftime('%w', localtime);						# Wochentag
 	$dayOfWeek = 7 if ($dayOfWeek eq "0");								# Sonntag nach hinten (Position 14 im Array)
-	my $intervall = 60;                                   # Intervall to start new InternalTimer (standard)			
+	my $intervall = 60;                                   # Intervall to start new InternalTimer (standard)
 	my $cnt_activ = 0;                                    # counter for activ timers
 	my ($seconds, $microseconds) = gettimeofday();
 	my @sunriseValues = split(":" , sunrise_abs("REAL"));	# Sonnenaufgang (06:34:24) splitted in array
 	my @sunsetValues = split(":" , sunset_abs("REAL"));		# Sonnenuntergang (19:34:24) splitted in array
 	my $state;;
 
-	Log3 $name, 4, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
-	Log3 $name, 4, "$name: Check is running, drift $microseconds microSeconds";
+	Log3 $name, 5, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
+	Log3 $name, 5, "$name: Check is running, drift $microseconds microSeconds";
 
 	foreach my $d (keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_\d+$/) {
@@ -789,7 +806,7 @@ sub Timer_Check($) {
 				$set = 0 if ($values[5] eq "00" && $timestamp_values[5] ne "00");				# Sekunde (Intervall 60)
 				$set = 0 if ($values[5] ne "00" && $timestamp_values[5] ne $values[5]);	# Sekunde (Intervall 10)
 				$intervall = 10 if ($values[5] ne "00");
-				Log3 $name, 4, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7)." (".$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
+				Log3 $name, 5, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7)." (".$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
 				if ($set == 1) {
 					Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
 					CommandSet($hash, $values[6]." ".$values[7]) if ($values[7] ne "Def");
@@ -868,7 +885,7 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	<ul><u>example for Def:</u>
 	<li><code>{ Log 1, "Timer: now switch" }</code> (PERL code)</li>
 	<li><code>update</code> (FHEM command)</li></ul>
-	<li><code>trigger Timer state:ins Log geschrieben</code> (FHEM-Kommando)</li>
+	<li><code>trigger Timer state:ins Log geschrieben</code> (FHEM-command)</li>
 	</li>
 </ul>
 <br>
