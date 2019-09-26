@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20222 2019-09-21 08:59:58Z HomeAuto_User $
+# $Id: 88_Timer.pm 20253 2019-09-21 08:59:58Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -471,7 +471,7 @@ sub Timer_FW_Detail($$$$) {
 	my @timer_nr;
 	my $cnt_max = scalar(@names);
 
-	return $html if((!AttrVal($name, "room", undef) && $FW_room ne "") || ($Table_View_in_room eq "off" && $FW_room ne ""));
+	return $html if((!AttrVal($name, "room", undef) && $FW_detail eq "") || ($Table_View_in_room eq "off" && $FW_detail eq ""));
 
 	if ($Table_Style eq "on") {
 		### style via CSS for Checkbox ###
