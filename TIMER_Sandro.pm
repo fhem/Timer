@@ -148,14 +148,14 @@ sub Timer_Set($$$@) {
 
 	if ($cmd eq "sortTimer") {
 		my @timers_unsortet;
-												
+
 		my @userattr_values;
 		my @attr_values_names;
 		my $timer_nr_new;
 		my $array_diff = 0;             # difference, Timer can be sorted >= 1
 		my $array_diff_cnt1 = 0;        # need to check 1 + 1
 		my $array_diff_cnt2 = 0;        # need to check 1 + 1
-		
+
 		RemoveInternalTimer($hash, "Timer_Check");
 
 		foreach my $readingsName (sort keys %{$hash->{READINGS}}) {
@@ -170,7 +170,7 @@ sub Timer_Set($$$@) {
 		}
 
 		my @timers_sort = sort @timers_unsortet;                              # Timer in neues Array sortieren
-										 
+
 
 		for (my $i=0; $i<scalar(@timers_unsortet); $i++) {
 			$array_diff++ if ($timers_unsortet[$i] ne $timers_sort[$i]);
@@ -472,8 +472,8 @@ sub Timer_FW_Detail($$$$) {
 	my $style_background = "";
 	my $style_code1 = "";
 	my $style_code2 = "";
-	my $Sunrise = AttrVal($name,"Sunrise","REAL");
-	my $Sunset = AttrVal($name,"Sunset","REAL");
+	my $Sunrise = AttrVal($name,"Sunrise","");
+	my $Sunset = AttrVal($name,"Sunset","");
 	my $time = FmtDateTime(time());
 	my $FW_room_dupl = $FW_room;
 	my @timer_nr;
@@ -487,7 +487,6 @@ sub Timer_FW_Detail($$$$) {
 		/* Labels for checked inputs */
 		input:checked {
 		}
-
 		/* Checkbox element, when checked */
 		input[type="checkbox"]:checked {
 			box-shadow: 2px -2px 1px #13ab15;
@@ -495,7 +494,6 @@ sub Timer_FW_Detail($$$$) {
 			-webkit-box-shadow: 2px -2px 1px #13ab15;
 			-o-box-shadow: 2px -2px 1px #13ab15;
 		}
-
 		/* Checkbox element, when NO checked */
 		input[type="checkbox"] {
 			box-shadow: 2px -2px 1px #b5b5b5;
@@ -503,7 +501,6 @@ sub Timer_FW_Detail($$$$) {
 			-webkit-box-shadow: 2px -2px 1px #b5b5b5;
 			-o-box-shadow: 2px -2px 1px #b5b5b5;
 		}
-
 		/* Checkbox element, when checked and hover */
 		input:hover[type="checkbox"]{
 			box-shadow: 2px -2px 1px red;
@@ -511,12 +508,10 @@ sub Timer_FW_Detail($$$$) {
 			-webkit-box-shadow: 2px -2px 1px red;
 			-o-box-shadow: 2px -2px 1px red;
 		}
-
 		/* Save element */
 		input[type="reset"] {
 			border-radius:4px;
 		}
-
 		</style>';
 	}
 
@@ -544,7 +539,7 @@ sub Timer_FW_Detail($$$$) {
 	## Überschriften
 	$html.= "<tr>";
 	####
-	$style_code1 = "border:1px solid #D8D8D8;" if($Table_Border_Cell eq "on");
+	$style_code1 = "border:1px solid #000000;" if($Table_Border_Cell eq "on");
 	for(my $spalte = 0; $spalte <= $cnt_max - 1; $spalte++) {
 		$html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte >= 1 && $spalte <= 6);   ## definierte Breite bei Auswahllisten
 		$html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte > 6 && $spalte < $cnt_max);	## auto Breite
@@ -554,7 +549,7 @@ sub Timer_FW_Detail($$$$) {
 	$html.= "</tr>";
 
 	for(my $zeile = 0; $zeile < $Timers_Count; $zeile++) {
-		$style_background = "background-color:#004040;" if ($zeile % 2 == 0);
+		$style_background = "background-color:#000000;" if ($zeile % 2 == 0);
 		$style_background = "" if ($zeile % 2 != 0);
 		$html.= "<tr>";
 		my $id = $timer_nr[$zeile] * 20; # id 20, 40, 60 ...
@@ -633,7 +628,6 @@ sub Timer_FW_Detail($$$$) {
 
 	## Tabellenende	+ Script
 	$html.= '</div>
-
 	<script>
 	/* checkBox Werte von Checkboxen Wochentage */
 	function Checkbox(id) {
@@ -644,7 +638,6 @@ sub Timer_FW_Detail($$$$) {
 			checkBox.value = 0;
 		}
 	}
-
 	/* Aktion wenn Speichern */
 	function pushed_savebutton(id) {
 		var allVals = [];
@@ -654,7 +647,6 @@ sub Timer_FW_Detail($$$$) {
 		for(var i=start; i<id; i++) {
 			allVals.push(document.getElementById(i).value);
 		}
-
 		/* check Semicolon description */
 		var n = allVals[7].search(";");       /* return -1 if not found */
 		if (n != -1) {
@@ -801,12 +793,14 @@ sub Timer_Check($) {
 	my $intervall = 60;                                   # Intervall to start new InternalTimer (standard)
 	my $cnt_activ = 0;                                    # counter for activ timers
 	my ($seconds, $microseconds) = gettimeofday();
-	my @sunriseValues = split(":" , sunrise_abs('$Sunrise'));	# Sonnenaufgang (06:34:24) splitted in array
-	my @sunsetValues = split(":" , sunset_abs('$Sunset'));		# Sonnenuntergang (19:34:24) splitted in array
+	my $Sunrise = AttrVal($name,"Sunrise","");
+	my $Sunset = AttrVal($name,"Sunset","");
+	my @sunriseValues = split(":" , sunrise_abs($Sunrise));	# Sonnenaufgang (06:34:24) splitted in array
+	my @sunsetValues = split(":" , sunset_abs($Sunset));	# Sonnenuntergang (19:34:24) splitted in array
 	my $state;;
 
-	Log3 $name, 5, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
-	Log3 $name, 5, "$name: Check is running, drift $microseconds microSeconds";
+	Log3 $name, 1, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
+	Log3 $name, 1, "$name: Check is running, drift $microseconds microSeconds";
 
 	foreach my $d (keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_\d+$/) {
@@ -885,9 +879,7 @@ sub Timer_Check($) {
 =item [helper]
 =item summary Programmable timer
 =item summary_DE Programmierbare Zeitschaltuhr
-
 =begin html
-
 <a name="Timer"></a>
 <h3>Timer Modul</h3>
 <ul>
@@ -898,7 +890,6 @@ In the drop-down list, the numerical values ​​for year / month / day / hour 
 In addition, you can use the selection <code> SR </code> and <code> SS </code> in the hour and minute column. These rumps represent the time of sunrise and sunset.<br>
 For example, if you select at minute <code> SS </code>, you have set the minutes of the sunset as the value. As soon as you set the value to <code> SS </code> at hour and minute
 the timer uses the calculated sunset time at your location. <u><i>(For this calculation the FHEM global attributes latitude and longitude are necessary!)</u></i>
-
 <br><br>
 <u>Programmable actions are currently:</u><br>
 <ul>
@@ -911,9 +902,7 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	</li>
 </ul>
 <br>
-
 <b>*</b> To do this, enter the code to be executed in the respective attribute. example: <code>Timer_03_set</code>
-
 <br><br>
 <u>Interval switching of the timer is only possible in the following variants:</u><br>
 <ul><li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
@@ -924,7 +913,6 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	 <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
 	 <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li></ul>
 <br><br>
-
 <b>Define</b><br>
 	<ul><code>define &lt;NAME&gt; Timer</code><br><br>
 		<u>example:</u>
@@ -932,7 +920,6 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 		define timer Timer
 		</ul>
 	</ul><br>
-
 <b>Set</b><br>
 	<ul>
 		<a name="addTimer"></a>
@@ -944,13 +931,11 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 		<a name="sortTimer"></a>
 		<li>sortTimer: Sorts the saved timers alphabetically.</li>
 	</ul><br><br>
-
 <b>Get</b><br>
 	<ul>
 		<a name="loadTimers"></a>
 		<li>loadTimers: Loads a saved configuration from file <code>Timers.txt</code> from directory <code>./FHEM/lib</code>.</li><a name=""></a>
 	</ul><br><br>
-
 <b>Attribute</b><br>
 	<ul><li><a href="#disable">disable</a></li></ul><br>
 	<ul><li><a name="stateFormat">stateFormat</a><br>
@@ -975,22 +960,16 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 	<ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
 	Shows the additional information (alias | comment, default off)</li><a name=" "></a></ul><br>
 	<br>
-
 <b><i>Generierte Readings</i></b><br>
 	<ul><li>Timer_xx<br>
 	Memory values ​​of the individual timer</li><br>
 	<li>internalTimer<br>
 	State of the internal timer (stop or Interval until the next call)</li><br><br></ul>
-
 <b><i><u>Hints:</u></i></b><br>
 <ul><li>Entries in the system logfile like: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> say that the timer has recalculated the time.</li></ul>
-
 </ul>
 =end html
-
-
 =begin html_DE
-
 <a name="Timer"></a>
 <h3>Timer Modul</h3>
 <ul>
@@ -1001,7 +980,6 @@ In der DropDown-Liste stehen jeweils die Zahlenwerte f&uuml;r Jahr	/ Monat	/ Tag
 Zus&auml;tzlich k&ouml;nnen Sie in der Spalte Stunde und Minute die Auswahl <code>SA</code> und <code>SU</code> nutzen. Diese K&uuml;rzel stehen f&uuml;r den Zeitpunkt Sonnenaufgang und Sonnenuntergang.<br>
 Wenn sie Beispielsweise bei Minute <code>SU</code> ausw&auml;hlen, so haben Sie die Minuten des Sonnenuntergang als Wert gesetzt. Sobald Sie bei Stunde und Minute den Wert auf <code>SU</code>
 stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem Standort. <u><i>(F&uuml;r diese Berechnung sind die FHEM globalen Attribute latitude und longitude notwendig!)</u></i>
-
 <br><br>
 <u>Programmierbare Aktionen sind derzeit:</u><br>
 <ul>
@@ -1014,9 +992,7 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	</li>
 </ul>
 <br>
-
 <b>*</b> Hierfür hinterlegen Sie den auszuf&uuml;hrenden Code in das jeweilige Attribut. Bsp.: <code>Timer_03_set</code>
-
 <br><br>
 <u>Eine Intervallschaltung des Timer ist nur m&ouml;glich in folgenden Varianten:</u><br>
 <ul><li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
@@ -1027,7 +1003,6 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	 <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
 	 <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li></ul>
 <br><br>
-
 <b>Define</b><br>
 	<ul><code>define &lt;NAME&gt; Timer</code><br><br>
 		<u>Beispiel:</u>
@@ -1035,7 +1010,6 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 		define Schaltuhr Timer
 		</ul>
 	</ul><br>
-
 <b>Set</b><br>
 	<ul>
 		<a name="addTimer"></a>
@@ -1047,13 +1021,11 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 		<a name="sortTimer"></a>
 		<li>sortTimer: Sortiert die gespeicherten Timer alphabetisch.</li>
 	</ul><br><br>
-
 <b>Get</b><br>
 	<ul>
 		<a name="loadTimers"></a>
 		<li>loadTimers: L&auml;d eine gespeicherte Konfiguration aus der Datei <code>Timers.txt</code> aus dem Verzeichnis <code>./FHEM/lib</code>.</li><a name=""></a>
 	</ul><br><br>
-
 <b>Attribute</b><br>
 	<ul><li><a href="#disable">disable</a></li></ul><br>
 	<ul><li><a name="stateFormat">stateFormat</a><br>
@@ -1082,18 +1054,14 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 	<ul><li><a name="Sunset">Sonnenuntergang</a><br>
 	Sonnenuntergang besteht aus vier Zonen, <br><br>"REAL" Sonne in der Horizontalen "HORIZON=0.0" <br> "CIVIL" Bürgerliche Dämmerung "HORIZON=-6.0" <br> "NAUTIC" Nautische Dämmerung "HORIZON=-12.0" <br> "ASTRONOMIC" Astronomische Dämmerung "HORIZON=-16.0"<br><br>Man kann unter den Wert auswählen wie der Stand beim Sonnenuntergang sein soll.</li><a name=" "></a></ul><br>
 	<br>
-
 <b><i>Generierte Readings</i></b><br>
 	<ul><li>Timer_xx<br>
 	Speicherwerte des einzelnen Timers</li><br>
 	<li>internalTimer<br>
 	Zustand des internen Timers (stop oder Intervall bis zum n&auml;chsten Aufruf)</li><br><br></ul>
-
 <b><i><u>Hinweise:</u></i></b><br>
 <ul><li>Eintr&auml;ge im Systemlogfile wie: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> sagen aus, das der Timer die Zeit neu berechnet hat.</li></ul>
-
 </ul>
 =end html_DE
-
 # Ende der Commandref
 =cut
