@@ -53,6 +53,7 @@ sub Timer_Initialize($) {
 													"Table_Size_TextBox:15,20,25,30,35,40,45,50 ".
 													"Table_View_in_room:on,off ".
 													"Table_Cell_Color:#000000,#FFFFFF ".
+													"Table_Border_Color:#000000,#FFFFFF,#6A5ACD ".
 													"Sunrise:REAL,CIVIL,NAUTIC,ASTRONOMIC ".
 													"Sunset:REAL,CIVIL,NAUTIC,ASTRONOMIC ".
 													"stateFormat:textField-long ";
@@ -466,6 +467,7 @@ sub Timer_FW_Detail($$$$) {
 	my $Timers_Count = 0;
 	my $Table_Border = AttrVal($name,"Table_Border","off");
 	my $Table_Border_Cell = AttrVal($name,"Table_Border_Cell","off");
+	my $Table_Border_Color = AttrVal($name,"Table_Border_Color","");
 	my $Table_Header_with_time = AttrVal($name,"Table_Header_with_time","off");
 	my $Table_Size_TextBox = AttrVal($name,"Table_Size_TextBox",20);
 	my $Table_Style = AttrVal($name,"Table_Style","off");
@@ -525,7 +527,7 @@ sub Timer_FW_Detail($$$$) {
 			push(@timer_nr, substr($d,index($d,"_")+1));		
 		}
 	}
-	$style_code2 = "border:2px solid #00FF00;" if($Table_Border eq "on");
+	$style_code2 = "border:2px solid #$Table_Border_Color;" if($Table_Border eq "on");
 
 	$html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($Sunrise)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($Sunset)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq "on");
 	$html.= "<div id=\"table\"><table class=\"block wide\" cellspacing=\"0\" style=\"$style_code2\">";
