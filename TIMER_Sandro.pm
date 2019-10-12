@@ -52,6 +52,7 @@ sub Timer_Initialize($) {
 													"Table_Style:on,off ".
 													"Table_Size_TextBox:15,20,25,30,35,40,45,50 ".
 													"Table_View_in_room:on,off ".
+													"Table_Cell_Color:#000000,#FFFFFF ".
 													"Sunrise:REAL,CIVIL,NAUTIC,ASTRONOMIC ".
 													"Sunset:REAL,CIVIL,NAUTIC,ASTRONOMIC ".
 													"stateFormat:textField-long ";
@@ -468,6 +469,7 @@ sub Timer_FW_Detail($$$$) {
 	my $Table_Header_with_time = AttrVal($name,"Table_Header_with_time","off");
 	my $Table_Size_TextBox = AttrVal($name,"Table_Size_TextBox",20);
 	my $Table_Style = AttrVal($name,"Table_Style","off");
+	my $Cell_Color = AttrVal($name,"Table_Cell_Color","");
 	my $Table_View_in_room = AttrVal($name,"Table_View_in_room","on");
 	my $style_background = "";
 	my $style_code1 = "";
@@ -539,7 +541,7 @@ sub Timer_FW_Detail($$$$) {
 	## Überschriften
 	$html.= "<tr>";
 	####
-	$style_code1 = "border:1px solid #000000;" if($Table_Border_Cell eq "on");
+	$style_code1 = "border:1px solid #$Cell_Color;" if($Table_Border_Cell eq "on");
 	for(my $spalte = 0; $spalte <= $cnt_max - 1; $spalte++) {
 		$html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte >= 1 && $spalte <= 6);   ## definierte Breite bei Auswahllisten
 		$html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte > 6 && $spalte < $cnt_max);	## auto Breite
@@ -549,7 +551,7 @@ sub Timer_FW_Detail($$$$) {
 	$html.= "</tr>";
 
 	for(my $zeile = 0; $zeile < $Timers_Count; $zeile++) {
-		$style_background = "background-color:#000000;" if ($zeile % 2 == 0);
+		$style_background = "background-color:#$Cell_Color;" if ($zeile % 2 == 0);
 		$style_background = "" if ($zeile % 2 != 0);
 		$html.= "<tr>";
 		my $id = $timer_nr[$zeile] * 20; # id 20, 40, 60 ...
@@ -799,8 +801,8 @@ sub Timer_Check($) {
 	my @sunsetValues = split(":" , sunset_abs($Sunset));	# Sonnenuntergang (19:34:24) splitted in array
 	my $state;;
 
-	Log3 $name, 1, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
-	Log3 $name, 1, "$name: Check is running, drift $microseconds microSeconds";
+	Log3 $name, 5, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
+	Log3 $name, 5, "$name: Check is running, drift $microseconds microSeconds";
 
 	foreach my $d (keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_\d+$/) {
