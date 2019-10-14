@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20267 2019-09-28 19:59:28Z HomeAuto_User $
+# $Id: 88_Timer.pm 20359 2019-09-28 19:59:28Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
