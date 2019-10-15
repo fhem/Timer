@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20359 2019-09-28 19:59:28Z HomeAuto_User $
+# $Id: 88_Timer.pm 20367 2019-10-15 16:04:25Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -974,7 +974,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
 	Sets the input values ​​for a new timer to the current time. (on | off = default)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Timer_xx_set">Timer_xx_set</a><br>
 	Location for the FHEM command or PERL code of the timer (xx has the numerical value of 01-99). WITHOUT this attribute, which <b> only appears if action <code> Def </code> is set </b>,
-	The module does not process FHEM command or PERL code from the user. <code><font color="red">*</font color> </code><a name=" "></a></ul><br>
+	The module does not process FHEM command or PERL code from the user. <code><font color="red">*</font color> </code></li><a name=" "></a></ul><br>
 	<ul><li><a name="Offset_Horizon">Offset_Horizon</a><br>
 	Different elevation angles are used to calculate sunrise and sunset times.<br>
 	(REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, default REAL)</li><a name=" "></a></ul><br>
@@ -1090,7 +1090,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
 	Setzt die Eingabewerte bei einem neuen Timer auf die aktuelle Zeit. (on | off, standard off)</li><a name=" "></a></ul><br>
 	<ul><li><a name="Timer_xx_set">Timer_xx_set</a><br>
 	Speicherort f&uuml;r das FHEM-Kommando oder den PERL-Code des Timers (xx hat den Zahlenwert von 01-99). OHNE dieses Attribut, welches <b>nur erscheint wenn die Aktion <code>Def</code> eingestellt </b> ist,
-	verarbeitet das Modul kein Kommando oder PERL-Code vom Benutzer. <code> <font color="red">*</font color> </code><a name=" "></a></ul><br>
+	verarbeitet das Modul kein Kommando oder PERL-Code vom Benutzer. <code> <font color="red">*</font color> </code></li><a name=" "></a></ul><br>
 	<ul><li><a name="Offset_Horizon">Offset_Horizon</a><br>
 	F&uuml;r die Berechnung der Zeiten von Sonnenaufgang und Sonnenuntergang werden verschiedene H&ouml;henwinkel verwendet.<br>
 	(REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, Standard REAL)</li><a name=" "></a></ul><br>
