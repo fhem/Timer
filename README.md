@@ -1,8 +1,7 @@
-# Timer - FHEM Module
+# Timer - FHEM Module (pre-release)
 
 ## Used branching model
 * Master branch: Production version (https://github.com/fhem/Timer)
-* Devel branch: Latest development version (https://github.com/fhem/Timer/tree/Beta_modify_Def_to_DEF)
 
 ## Community support
 The FHEM Forum is available [here](https://forum.fhem.de/) for general support.
