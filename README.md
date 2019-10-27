@@ -1,4 +1,4 @@
-# Timer - FHEM Module
+# Timer - FHEM Module (pre-release)
 
 ## Used branching model
 * Master branch: Production version (https://github.com/fhem/Timer)
