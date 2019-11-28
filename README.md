@@ -4,6 +4,11 @@
 * Master branch: Production version (https://github.com/fhem/Timer)
 * Devel branch: Latest development version (https://github.com/fhem/Timer/tree/pre-release)
 
+## How to install
+The Perl modules can be loaded directly into your FHEM installation:
+
+```update all https://raw.githubusercontent.com/fhem/Timer/pre-release/controls_Timer.txt```
+
 ## Community support
 The FHEM Forum is available [here](https://forum.fhem.de/) for general support.
 In case you have a specific question about this module, it is recommended to find the right sub-forum.
