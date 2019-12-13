@@ -760,8 +760,8 @@ sub FW_pushed_savebutton {
 		}
 	}
 
-	return "ERROR: The time is in the past. Please set a time in the future!" if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0);
-	return "ERROR: The next switching point is too small!" if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60);
+	return "ERROR: The time is in the past. Please set a time in the future!" if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year)) > 0);
+	return "ERROR: The next switching point is too small!" if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60);
 
 	readingsDelete($hash,"Timer_".sprintf("%02s", $timer)."_set") if ($selected_buttons[8] ne "DEF" && ReadingsVal($name, "Timer_".sprintf("%02s", $timer)."_set", 0) ne "0");
 
