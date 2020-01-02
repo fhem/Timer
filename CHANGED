@@ -1,3 +1,6 @@
+2020-01-02 - Merge pull request #6 from elektron-bbs/pre-release_singleupdate
+
+88_Timer.pm: sub Timer_Check - readingsSingleUpdate
 2019-12-13 - Merge branch 'pre-release' of https://github.com/fhem/Timer into pre-release
 2019-12-13 - Update 88_Timer.pm
 
