@@ -907,7 +907,8 @@ sub Timer_Check($) {
 				if ($set == 1) {
 					Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
 					CommandSet($hash, $values[6]." ".$values[7]) if ($values[7] ne "DEF");
-					$state = "$d set $values[6] $values[7] accomplished";
+					# $state = "$d set $values[6] $values[7] accomplished";
+					readingsSingleUpdate($hash, "state" , "$d set $values[6] $values[7] accomplished", 1);
 					if ($values[7] eq "DEF") {
 						if (AttrVal($name, $d."_set", undef)) {
 							Log3 $name, 5, "$name: $d - exec at command: ".AttrVal($name, $d."_set", undef);
