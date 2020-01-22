@@ -1,3 +1,6 @@
+2020-01-22 - Update 88_Timer.pm
+
+- fix list "Probably associated with"
 2020-01-02 - Merge pull request #6 from elektron-bbs/pre-release_singleupdate
 
 88_Timer.pm: sub Timer_Check - readingsSingleUpdate
