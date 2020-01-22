@@ -1,4 +1,5 @@
 # Timer - FHEM Module
+The module is a timer for executing actions with only one InternalTimer.
 
 ## Used branching model
 * Master branch: Production version (https://github.com/fhem/Timer)
