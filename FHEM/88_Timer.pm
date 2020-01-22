@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 20729 2019-12-13 16:04:25Z HomeAuto_User $
+# $Id: 88_Timer.pm 20729 2020-01-22 11:45:25Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -9,7 +9,7 @@
 # https://forum.fhem.de/index.php/board,20.0.html
 # https://forum.fhem.de/index.php/topic,103848.html | https://forum.fhem.de/index.php/topic,103986.0.html
 #
-# 2019 - HomeAuto_User & elektron-bbs
+# 2019 | 2020 - HomeAuto_User, elektron-bbs
 #################################################################
 # notes:
 # - module mit package umsetzen
@@ -803,6 +803,27 @@ sub FW_pushed_savebutton {
 
 	readingsBulkUpdate($hash, "state" , $state, 1);
 	readingsEndUpdate($hash, 1);
+
+	## Probably associated with - added to list ##
+	### check must work after changed setreadings to new value ###
+	## all device must check, for right value in .associatedWith
+	my $associatedWith = ReadingsVal($name, ".associatedWith", "");
+
+	foreach my $d (sort keys %{$hash->{READINGS}}) {
+		if ($d =~ /^Timer_(\d+)$/) {
+			my @values = split("," , ReadingsVal($name, $d, ""));
+			if ($values[7] ne "DEF") {
+				#Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith check: ".$values[6]." with ".$values[7];
+				if (not grep /$values[6]/, $associatedWith) {
+					#Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith added ".$values[6];
+					$associatedWith = $associatedWith eq "" ? $values[6] : $associatedWith.",".$values[6];
+				}
+			}
+		}
+	}
+	Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith is: ".$associatedWith;
+	CommandSetReading(undef, "$name .associatedWith $associatedWith");
+	## current list "Probably associated with" finish ##
 
 	## popup user message (jump to javascript) ##
 	if ($popup != 0) {
