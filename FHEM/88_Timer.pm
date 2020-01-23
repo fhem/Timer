@@ -267,7 +267,8 @@ sub Timer_Set($$$@) {
 
 		my $deleteTimer = "Timer_$cmd2"."_set:textField-long";
 		Timer_delFromUserattr($hash,$deleteTimer);
-		addStructChange("modify", $name, "attr $name userattr Timer_$cmd2");      # note with question mark
+		Timer_PawList($hash);                                                  # list, Probably associated with
+		addStructChange("modify", $name, "attr $name userattr Timer_$cmd2");   # note with question mark
 	}
 
 	return $setList if ( $a[0] eq "?");
@@ -377,6 +378,8 @@ sub Timer_Get($$$@) {
 				chomp ($attr_values[$i]);                              # Zeilenende entfernen
 				CommandAttr($hash,"$name $attr_values_names[$i] $attr_values[$i]");
 			}
+
+			Timer_PawList($hash);                                    # list, Probably associated with
 
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
 			FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "location.reload('true')", "");
@@ -804,26 +807,7 @@ sub FW_pushed_savebutton {
 	readingsBulkUpdate($hash, "state" , $state, 1);
 	readingsEndUpdate($hash, 1);
 
-	## Probably associated with - added to list ##
-	### check must work after changed setreadings to new value ###
-	## all device must check, for right value in .associatedWith
-	my $associatedWith = ReadingsVal($name, ".associatedWith", "");
-
-	foreach my $d (sort keys %{$hash->{READINGS}}) {
-		if ($d =~ /^Timer_(\d+)$/) {
-			my @values = split("," , ReadingsVal($name, $d, ""));
-			if ($values[7] ne "DEF") {
-				#Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith check: ".$values[6]." with ".$values[7];
-				if (not grep /$values[6]/, $associatedWith) {
-					#Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith added ".$values[6];
-					$associatedWith = $associatedWith eq "" ? $values[6] : $associatedWith.",".$values[6];
-				}
-			}
-		}
-	}
-	Log3 $name, 5, "$name: FW_pushed_savebutton | Reading .associatedWith is: ".$associatedWith;
-	CommandSetReading(undef, "$name .associatedWith $associatedWith");
-	## current list "Probably associated with" finish ##
+	Timer_PawList($hash);                                                          # list, Probably associated with
 
 	## popup user message (jump to javascript) ##
 	if ($popup != 0) {
@@ -970,6 +954,51 @@ sub Timer_Check($) {
 	readingsBulkUpdate($hash, "internalTimer" , $intervall, 0) if($cnt_activ > 0);
 	readingsEndUpdate($hash, 1);
 }
+
+### list, Probably associated with ###
+sub Timer_PawList($) {
+	my ($hash) = @_;
+	my $name = $hash->{NAME};
+	my $associatedWith = "";
+
+	Log3 $name, 5, "$name: Timer_PawList is running";
+
+	foreach my $d (sort keys %{$hash->{READINGS}}) {
+		if ($d =~ /^Timer_(\d+)$/) {
+			my @values = split("," , ReadingsVal($name, $d, ""));
+			### clear value, "Probably associated with" ne DEF
+			if ($values[7] ne "DEF") {
+				if (not grep /$values[6]/, $associatedWith) {
+					$associatedWith = $associatedWith eq "" ? $values[6] : $associatedWith.",".$values[6];
+				}
+			### Self-administration test, "Probably associated with" for DEF
+			} elsif ($values[7] eq "DEF") {
+				my $Timer_set_attr = AttrVal($name, $d."_set", "");
+				if ($Timer_set_attr ne "") {
+					Log3 $name, 5, "$name: Timer_PawList | look at DEF: ".$Timer_set_attr;
+					$Timer_set_attr =~ /(get|set)\s(\w+)\s/;
+					if ($2) {
+						Log3 $name, 5, "$name: Timer_PawList | found in DEF: ".$2;
+						if (not grep /$2/, $associatedWith) {
+							$associatedWith = $associatedWith eq "" ? $1 : $associatedWith.",".$1;
+						}
+					}
+				}
+			}
+			### END ###
+		}
+	}
+
+	Log3 $name, 5, "$name: Timer_PawList | Reading .associatedWith is: ".$associatedWith;
+	if ($associatedWith ne "") {
+		CommandSetReading(undef, "$name .associatedWith $associatedWith");	
+	} else {
+		readingsDelete($hash,".associatedWith") if(ReadingsVal($name, ".associatedWith", undef));
+	}
+	## current list "Probably associated with" finish ##
+}
+
+##########################################
 
 # Eval-Rückgabewert für erfolgreiches
 # Laden des Moduls
