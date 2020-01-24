@@ -963,7 +963,7 @@ sub Timer_PawList($) {
 
 	Log3 $name, 5, "$name: Timer_PawList is running";
 
-	foreach my $d (sort keys %{$hash->{READINGS}}) {
+	foreach my $d (keys %{$hash->{READINGS}}) {
 		if ($d =~ /^Timer_(\d+)$/) {
 			my @values = split("," , ReadingsVal($name, $d, ""));
 			### clear value, "Probably associated with" ne DEF
