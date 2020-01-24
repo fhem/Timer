@@ -980,7 +980,7 @@ sub Timer_PawList($) {
 					if ($2) {
 						Log3 $name, 5, "$name: Timer_PawList | found in DEF: ".$2;
 						if (not grep /$2/, $associatedWith) {
-							$associatedWith = $associatedWith eq "" ? $1 : $associatedWith.",".$1;
+							$associatedWith = $associatedWith eq "" ? $2 : $associatedWith.",".$2;
 						}
 					}
 				}
