@@ -1,3 +1,6 @@
+2020-01-24 - Update 88_Timer.pm
+
+- fix Timer_PawList with DEF
 2020-01-23 - Update 88_Timer.pm
 
 - revised code for list "Probably associated with"
