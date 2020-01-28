@@ -1,3 +1,6 @@
+2020-01-28 - Update 88_Timer.pm
+
+- fix Timer_PawList after delete attr
 2020-01-24 - Merge branch 'pre-release' of https://github.com/fhem/Timer into pre-release
 2020-01-24 - Update 88_Timer.pm
 
