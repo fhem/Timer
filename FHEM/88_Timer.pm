@@ -411,6 +411,7 @@ sub Timer_Attr() {
 
 		if ($attrName =~ /^Timer_\d{2}_set$/) {
 			my $err = perlSyntaxCheck($attrValue, ());   # check PERL Code
+			InternalTimer(gettimeofday()+0.1, "Timer_PawList", $hash);
 			return $err if($err);
 		}
 	}
