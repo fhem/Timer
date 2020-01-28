@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 21032 2020-01-22 10:51:05Z HomeAuto_User $
+# $Id: 88_Timer.pm 21032 2020-01-28 10:51:05Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -427,6 +427,11 @@ sub Timer_Attr() {
 				return "Please execute again if you want to force the attribute to delete!" if ($cnt_attr_userattr == 1);
 				$cnt_attr_userattr = 0;
 			}
+		}
+		
+		if ($attrName =~ /^Timer_\d{2}_set$/) {
+			Log3 $name, 3, "$name: Attr | Attributes $attrName deleted";
+			InternalTimer(gettimeofday()+0.1, "Timer_PawList", $hash);
 		}
 	}
 }
