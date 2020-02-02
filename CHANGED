@@ -1,3 +1,6 @@
+2020-02-02 - Update 88_Timer.pm
+
+- revised SVN revision
 2020-01-28 - Update 88_Timer.pm
 
 - added Timer_PawList check, if attribute "Timer_\d{2}_set" changed
