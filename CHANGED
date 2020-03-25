@@ -1,3 +1,6 @@
+2020-03-25 - Update 88_Timer.pm
+
+- revised SVN numbre
 2020-02-18 - Update 88_Timer.pm
 
 - fix FILTER. (if user use FHEM cmd line in one room and room is not named Timer)
