@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 21098 2020-02-02 21:45:50Z HomeAuto_User $
+# $Id: 88_Timer.pm 21514 2020-03-25 17:30:43Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -282,6 +282,7 @@ sub Timer_Get($$$@) {
 	my $list = "loadTimers:no,yes";
 	my $cmd2 = $a[0];
 	my $Timer_cnt_name = -1;
+	my $room = AttrVal($name, "room", "Unsorted");
 
 	if ($cmd eq "loadTimers") {
 		if ($cmd2 eq "no") {
@@ -382,7 +383,7 @@ sub Timer_Get($$$@) {
 			Timer_PawList($hash);                                    # list, Probably associated with
 
 			readingsSingleUpdate($hash, "state" , "Timers loaded", 1);
-			FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "location.reload('true')", "");
+			FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "location.reload('true')", "");
 			Timer_Check($hash);
 
 			return undef;
@@ -720,6 +721,7 @@ sub FW_pushed_savebutton {
 	my $cnt_names = scalar(@selected_buttons);
 	my $devicefound = 0;                                    # to check device exists
 	my $reload = 0;
+	my $room = AttrVal($name, "room", "Unsorted");
 
 	my $timestamp = TimeNow();                              # Time now -> 2016-02-16 19:34:24
 	my @timestamp_values = split(/-|\s|:/ , $timestamp);    # Time now splitted
@@ -817,12 +819,12 @@ sub FW_pushed_savebutton {
 
 	## popup user message (jump to javascript) ##
 	if ($popup != 0) {
-		FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", "");
+		FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", "");
 		$reload = 0 if ($reload != 0); # reset, need to right running
 	}
 
 	## refresh site, need for userattr & right view checkboxes ##
-	FW_directNotify("FILTER=(room=)?$name", "#FHEMWEB:WEB", "location.reload('true')", "") if ($reload != 0);
+	FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "location.reload('true')", "") if ($reload != 0);
 
 	Timer_Check($hash) if ($selected_buttons[16] eq "1" && ReadingsVal($name, "internalTimer", "stop") eq "stop");
 
