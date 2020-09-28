@@ -79,17 +79,17 @@ sub Timer_Define {
   my @arg = split("[ \t][ \t]*", $def);
   my $name = $arg[0];                    ## Definitionsname, mit dem das Gerät angelegt wurde
   my $typ = $hash->{TYPE};               ## Modulname, mit welchem die Definition angelegt wurde
-  my $filelogName = "FileLog_$name";
+  my $filelogName = 'FileLog_'.$name;
   my ($cmd, $ret);
   my ($autocreateFilelog, $autocreateHash, $autocreateName, $autocreateDeviceRoom, $autocreateWeblinkRoom) = ('%L' . $name . '-%Y-%m.log', undef, 'autocreate', $typ, $typ);
   $hash->{NOTIFYDEV} = "global,TYPE=$typ";
 
-  return "Usage: define <name> $name"  if(@arg != 2);
+  if (@arg != 2) { return "Usage: define <name> $name"; }
 
   if ($init_done) {
     if (!defined(AttrVal($autocreateName, 'disable', undef)) && !exists($defs{$filelogName})) {
       ### create FileLog ###
-      $autocreateFilelog = AttrVal($autocreateName, 'filelog', undef) if (defined AttrVal($autocreateName, 'filelog', undef));
+      if (defined AttrVal($autocreateName, 'filelog', undef)) { $autocreateFilelog = AttrVal($autocreateName, 'filelog', undef); }
       $autocreateFilelog =~ s/%NAME/$name/gxms;
       $cmd = "$filelogName FileLog $autocreateFilelog $name";
       Log3 $filelogName, 2, "$name: define $cmd";
@@ -105,7 +105,7 @@ sub Timer_Define {
     }
 
     ### Attributes ###
-    CommandAttr($hash,"$name room $typ") if (!defined AttrVal($name, 'room', undef));       # set room, if only undef --> new def
+    if (!defined AttrVal($name, 'room', undef)) { CommandAttr($hash,"$name room $typ"); }       # set room, if only undef --> new def
   }
 
   ### default value´s ###
@@ -119,7 +119,7 @@ sub Timer_Define {
 #####################
 sub Timer_Set {
   my ( $hash, $name, @a ) = @_;
-  return 'no set value specified' if(int(@a) < 1);
+  if (int(@a) < 1) { return 'no set value specified'; }
 
   my $setList = 'addTimer:noArg ';
   my $cmd = $a[0];
@@ -134,7 +134,7 @@ sub Timer_Set {
     if ($d =~ /^Timer_(\d)+$/xms) {
       $Timers_Count++;
       $d =~ s/Timer_//ms;
-      $setList.= 'deleteTimer:' if ($Timers_Count == 1);
+      if ($Timers_Count == 1) { $setList.= 'deleteTimer:'; }
       $setList.= $d.',';
     }
   }
@@ -144,9 +144,8 @@ sub Timer_Set {
     $setList.= ' saveTimers:noArg';
   }
 
-  $setList.= ' sortTimer:noArg' if ($Timers_Count > 1);
-
-  Log3 $name, 4, "$name: Set | cmd=$cmd" if ($cmd ne '?');
+  if ($Timers_Count > 1) { $setList.= ' sortTimer:noArg'; }
+  if ($cmd ne '?') { Log3 $name, 4, "$name: Set | cmd=$cmd"; }
 
   if ($cmd eq 'sortTimer') {
     my @timers_unsortet;
@@ -164,26 +163,26 @@ sub Timer_Set {
         push(@timers_unsortet,$1.','.ReadingsVal($name, $readingsName, 0).",$readingsName");   # unsort Reading Wert in Array
         $array_diff_cnt1++;
         $array_diff_cnt2 = substr($readingsName,-2) * 1;
-        $array_diff = 1 if ($array_diff_cnt1 != $array_diff_cnt2 && $array_diff == 0);
+        if ($array_diff_cnt1 != $array_diff_cnt2 && $array_diff == 0) { $array_diff = 1; }
       }
     }
 
-    my @timers_sort = sort @timers_unsortet;                              # Timer in neues Array sortieren
+    my @timers_sort = sort @timers_unsortet;                                # Timer in neues Array sortieren
 
     for (my $i=0; $i<scalar(@timers_unsortet); $i++) {
-      $array_diff++ if ($timers_unsortet[$i] ne $timers_sort[$i]);
+      if ($timers_unsortet[$i] ne $timers_sort[$i]) { $array_diff++; }
     }
 
-    RemoveInternalTimer($hash, 'Timer_Check') if ($array_diff != 0);
-    return 'cancellation! No sorting necessary.' if ($array_diff == 0);   # check, need action continues
+    if ($array_diff != 0) { RemoveInternalTimer($hash, 'Timer_Check'); }
+    if ($array_diff == 0) { return 'cancellation! No sorting necessary.'; } # check, need action continues
 
     for (my $i=0; $i<scalar(@timers_sort); $i++) {
-      readingsDelete($hash, substr($timers_sort[$i],-8));                 # Readings Timer loeschen
+      readingsDelete($hash, substr($timers_sort[$i],-8));                   # Readings Timer loeschen
     }
 
     for (my $i=0; $i<scalar(@timers_sort); $i++) {
-      $timer_nr_new = sprintf("%02s",$i + 1);                             # neue Timer-Nummer
-      if ($timers_sort[$i] =~ /^.*\d{2},(.*),(DEF),.*,(Timer_\d+)/xms) {  # filtre DEF values - Perl Code (DEF must in S2 - Timer nr old $3)
+      $timer_nr_new = sprintf("%02s",$i + 1);                               # neue Timer-Nummer
+      if ($timers_sort[$i] =~ /^.*\d{2},(.*),(DEF),.*,(Timer_\d+)/xms) {    # filtre DEF values - Perl Code (DEF must in S2 - Timer nr old $3)
         Log3 $name, 4, "$name: Set | $cmd: ".$timers_sort[$i];
         if (defined AttrVal($name, $3.'_set', undef)) {
           Log3 $name, 4, "$name: Set | $cmd: ".$3.' remember values';
@@ -229,12 +228,12 @@ sub Timer_Set {
 
     if ($Timer_preselection eq 'on') {
       my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
-      $value = $year + 1900 .','.sprintf("%02s", ($mon + 1)).','.sprintf("%02s", $mday).','.sprintf("%02s", $hour).','.sprintf("%02s", $min).',00,,on,1,1,1,1,1,1,1,0';
+      $value = ($year + 1900).','.sprintf("%02s", ($mon + 1)).','.sprintf("%02s", $mday).','.sprintf("%02s", $hour).','.sprintf("%02s", $min).',00,,on,1,1,1,1,1,1,1,0';
     } else {
       $value = "$description_all,$description_all,$description_all,$description_all,$description_all,00,,on,1,1,1,1,1,1,1,0";
     }
 
-    $Timers_Count = $Timers_Count + 1 if ($Timers_diff == 0);
+    if ($Timers_diff == 0) { $Timers_Count = $Timers_Count + 1; }
     readingsSingleUpdate($hash, 'Timer_'.sprintf("%02s", $Timers_Count) , $value, 1);
   }
 
@@ -248,8 +247,8 @@ sub Timer_Set {
 
       foreach my $e (sort keys %{$attr{$name}}) {
         my $LE = '';
-        $LE = "\n" if (AttrVal($name, $e, undef) !~ /\n$/xms);
-        print $SaveDoc $e.','.AttrVal($name, $e, undef).$LE if ($e =~ /^Timer_(\d+)_set$/xms);
+        if (AttrVal($name, $e, undef) !~ /\n$/xms) { $LE = "\n"; }
+        if ($e =~ /^Timer_(\d+)_set$/xms) { print $SaveDoc $e.','.AttrVal($name, $e, undef).$LE; }
       }
     close($SaveDoc);
   }
@@ -273,8 +272,9 @@ sub Timer_Set {
     addStructChange('modify', $name, "attr $name userattr Timer_$cmd2");   # note with question mark
   }
 
-  return $setList if ( $a[0] eq '?');
-  return "Unknown argument $cmd, choose one of $setList" if (not grep /$cmd/xms, $setList);
+  if ($a[0] eq '?') { return $setList; }
+  if (not grep { /$cmd/xms } $setList) { return "Unknown argument $cmd, choose one of $setList"; }
+
   return;
 }
 
@@ -287,9 +287,7 @@ sub Timer_Get {
   my $room = AttrVal($name, 'room', 'Unsorted');
 
   if ($cmd eq 'loadTimers') {
-    if ($cmd2 eq 'no') {
-      return '';
-    }
+    if ($cmd2 eq 'no') { return; }
 
     if ($cmd2 eq 'yes') {
       my $error = '';
@@ -311,27 +309,29 @@ sub Timer_Get {
             #$error.= "- scalar arrray\n" if (scalar(@values) != 17);
             push(@attr_values_names, $values[0].'_set') if($values[8] eq 'DEF');
             for (my $i=0;$i<@values;$i++) {
-              $error.= '- '.$values[0]." is no $name description" if ($i == 0 && $values[0] !~ /^Timer_\d{2}$/xms);
-              $error.= '- '.$values[1].' invalid value' if ($i == 1 && $values[1] !~ /^\d{4}$|^$description_all$/xms);
+              if ($i == 0 && $values[0] !~ /^Timer_\d{2}$/xms) { $error.= '- '.$values[0]." is no $name description"; }
+              if ($i == 1 && $values[1] !~ /^\d{4}$|^$description_all$/xms) { $error.= '- '.$values[1].' invalid value'; }
+
               if ($i >= 2 && $i <= 5 && $values[$i] ne $description_all) {
-                $error.= '- '.$values[$i].' not decimal' if ($i >= 2 && $i <= 3 && $values[$i] !~ /^\d{2}$/xms);
-                $error.= '- '.$values[2].' wrong value (allowed 1-12)' if ($i == 2 && ($values[2] * 1) < 1 && ($values[2] * 1) > 12);
-                $error.= '- '.$values[3].' wrong value (allowed 1-31)' if ($i == 3 && ($values[3] * 1) < 1 && ($values[3] * 1) > 31);
+                if ($i >= 2 && $i <= 3 && $values[$i] !~ /^\d{2}$/xms) { $error.= '- '.$values[$i].' not decimal'; }
+                if ($i == 2 && ($values[2] * 1) < 1 && ($values[2] * 1) > 12) { $error.= '- '.$values[2].' wrong value (allowed 1-12)'; }
+                if ($i == 3 && ($values[3] * 1) < 1 && ($values[3] * 1) > 31) { $error.= '- '.$values[3].' wrong value (allowed 1-31)'; }
 
                 if ($i >= 4 && $i <= 5 && $values[$i] ne $designations[4] && $values[$i] ne $designations[5]) { # SA -> 4 SU -> 5
-                  $error.= '- '.$values[$i].' not support' if ($i >= 4 && $i <= 5 && $values[$i] !~ /^\d{2}$/xms);
-                  $error.= '- '.$values[4].' wrong value (allowed 00-23)' if ($i == 4 && ($values[4] * 1) > 23);
-                  $error.= '- '.$values[5].' wrong value (allowed 00-59)' if ($i == 5 && ($values[5] * 1) > 59);
+                  if ($i >= 4 && $i <= 5 && $values[$i] !~ /^\d{2}$/xms) { $error.= '- '.$values[$i].' not support'; }
+                  if ($i == 4 && ($values[4] * 1) > 23) { $error.= '- '.$values[4].' wrong value (allowed 00-23)'; }
+                  if ($i == 5 && ($values[5] * 1) > 59) { $error.= '- '.$values[5].' wrong value (allowed 00-59)'; }
                 }
               }
-              $error.= '- '.$values[$i]." is no % 10\n" if ($i == 6 && $values[$i] % 10 != 0);
-              $error.= '- '.$values[$i]." is no allowed action \n" if ($i == 8 && not grep { $values[$i] eq $_ } @action);
-              $error.= '- '.$values[$i]." is not 0 or 1 \n" if ($i >= 9 && $values[$i] ne '0' && $values[$i] ne '1');
+
+              if ($i == 6 && $values[$i] % 10 != 0) { $error.= '- '.$values[$i]." is no % 10\n"; }
+              if ($i == 8 && not grep { $values[$i] eq $_ } @action) { $error.= '- '.$values[$i]." is no allowed action \n"; }
+              if ($i >= 9 && $values[$i] ne '0' && $values[$i] ne '1') { $error.= '- '.$values[$i]." is not 0 or 1 \n"; }
 
               if ($error ne '') {
                 close $InputFile;
                 Timer_Check($hash);
-                $error.= "\nYour language is wrong! ($language)" if ($error =~ /-\s(all\s|alle\s|SA\s|SU\s|SR\s|SS\s)/xms);
+                if ($error =~ /-\s(all\s|alle\s|SA\s|SU\s|SR\s|SS\s)/xms) { $error.= "\nYour language is wrong! ($language)"; }
                 return "ERROR: your file is NOT valid!\n\nline $line\n$error";
               }
             }
@@ -341,10 +341,11 @@ sub Timer_Get {
             $Timer_cnt_name++;
             push(@attr_values, substr($_,13));
           } elsif ($_ !~ /^Timer_\d{2},/xms) {
-            $attr_values[$Timer_cnt_name].= $_ if ($Timer_cnt_name >= 0);
+            if ($Timer_cnt_name >= 0) { $attr_values[$Timer_cnt_name].= $_; }
+
             if ($_ =~ /.*}.*/xms){                                            # letzte } Klammer finden
               my $err = perlSyntaxCheck($attr_values[$Timer_cnt_name], ());   # check PERL Code
-              if($err) {
+              if ($err) {
                 $err = "ERROR: your file is NOT valid! \n \n".$err;
                 close $InputFile;
                 Timer_Check($hash);
@@ -356,21 +357,20 @@ sub Timer_Get {
       close $InputFile;
 
       foreach my $d (sort keys %{$hash->{READINGS}}) {         # delete all readings
-        readingsDelete($hash, $d) if ($d =~ /^Timer_(\d+)$/xms);
+        if ($d =~ /^Timer_(\d+)$/xms) { readingsDelete($hash, $d); }
       }
 
       foreach my $f (sort keys %{$attr{$name}}) {              # delete all attributes Timer_xx_set ...
-        CommandDeleteAttr($hash, $name.' '.$f) if ($f =~ /^Timer_(\d+)_set$/xms);
+        if ($f =~ /^Timer_(\d+)_set$/xms) { CommandDeleteAttr($hash, $name.' '.$f); }
       }
 
       my @userattr_values = split(' ', AttrVal($name, 'userattr', 'none'));
       for (my $i=0;$i<@userattr_values;$i++) {                 # delete userattr values Timer_xx_set:textField-long ...
-        delFromDevAttrList($name, $userattr_values[$i]) if ($userattr_values[$i] =~ /^Timer_(\d+)_set:textField-long$/xms);
+        if ($userattr_values[$i] =~ /^Timer_(\d+)_set:textField-long$/xms) { delFromDevAttrList($name, $userattr_values[$i]); }
       }
 
       foreach my $e (@lines_readings) {                        # write new readings
-        my $Timer_nr = substr($e,0,8);
-        readingsSingleUpdate($hash, "$Timer_nr" , substr($e,9,length($e)-9), 1) if ($e =~ /^Timer_\d{2},/xms);
+        if ($e =~ /^Timer_\d{2},/xms) { readingsSingleUpdate($hash, substr($e,0,8) , substr($e,9,length($e)-9), 1); }
       }
 
       for (my $i=0;$i<@attr_values_names;$i++) {               # write new userattr
@@ -415,20 +415,18 @@ sub Timer_Attr {
     if ($attrName =~ /^Timer_\d{2}_set$/xms) {
       my $err = perlSyntaxCheck($attrValue, ());   # check PERL Code
       InternalTimer(gettimeofday()+0.1, 'Timer_PawList', $hash);
-      return $err if($err);
+      if ($err) { return $err; }
     }
   }
 
   if ($cmd eq 'del') {
     Log3 $name, 5, "$name: Attr | Attributes $attrName deleted";
-    if ($attrName eq 'disable') {
-      Timer_Check($hash);
-    }
+    if ($attrName eq 'disable') { Timer_Check($hash); }
 
     if ($attrName eq 'userattr') {
       if (defined AttrVal($FW_wname, 'confirmDelete', undef) && AttrVal($FW_wname, 'confirmDelete', undef) == 0) {
         $cnt_attr_userattr++;
-        return 'Please execute again if you want to force the attribute to delete!' if ($cnt_attr_userattr == 1);
+        if ($cnt_attr_userattr == 1) { return 'Please execute again if you want to force the attribute to delete!'; }
         $cnt_attr_userattr = 0;
       }
     }
@@ -462,7 +460,7 @@ sub Timer_Notify {
   my $devName = $dev_hash->{NAME};  # Device that created the events
   my $events = deviceEvents($dev_hash, 1);
 
-  if($devName eq 'global' && grep(m/^INITIALIZED|REREADCFG$/xms, @{$events}) && $typ eq 'Timer') {
+  if ( $devName eq 'global' && grep { m/^INITIALIZED|REREADCFG$/xms } @{$events} && $typ eq 'Timer' ) {
     Log3 $name, 5, "$name: Notify is running and starting $name";
 
     ### Compatibility Check Def to DEF ###
@@ -503,7 +501,7 @@ sub Timer_FW_Detail {
   my @timer_nr;
   my $cnt_max = scalar(@names);
 
-  return $html if((!AttrVal($name, 'room', undef) && $FW_detail eq '') || ($Table_View_in_room eq 'off' && $FW_detail eq ''));
+  if ((!AttrVal($name, 'room', undef) && $FW_detail eq '') || ($Table_View_in_room eq 'off' && $FW_detail eq '')) { return $html; }
 
   if ($Table_Style eq 'on') {
     ### style via CSS for Checkbox ###
@@ -552,7 +550,8 @@ sub Timer_FW_Detail {
       push(@timer_nr, substr($d,index($d,'_')+1));    
     }
   }
-  $style_code2 = "border:2px solid #00FF00;" if($Table_Border eq 'on');
+
+  if ($Table_Border eq 'on') { $style_code2 = "border:2px solid #00FF00;"; }
 
   $html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq 'on');
   $html.= "<div id=\"table\"><table class=\"block wide\" style=\"$style_code2\">";
@@ -568,12 +567,14 @@ sub Timer_FW_Detail {
   ## Ueberschrift
   $html.= "<tr class=\"odd\">";
   ####
-  $style_code1 = "border:1px solid #D8D8D8;" if($Table_Border_Cell eq 'on');
+
+  if ($Table_Border_Cell eq 'on') { $style_code1 = "border:1px solid #D8D8D8;"; }
+
   for(my $spalte = 0; $spalte <= $cnt_max - 1; $spalte++) {
-    $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-left:5px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte == 0);              # Timer-Nummer - auto Breite
-    $html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte >= 1 && $spalte <= 6);       # Dropdown-Listen - definierte Breite
-    $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte > 6 && $spalte < $cnt_max - 1);       # auto Breite
-    $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-right:5px; text-decoration:underline\">".$names[$spalte]."</td>" if ($spalte == $cnt_max - 1);  # Button save - auto Breite
+    if ($spalte == 0) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-left:5px; text-decoration:underline\">".$names[$spalte]."</td>"; }            # Timer-Nummer - auto Breite
+    if ($spalte >= 1 && $spalte <= 6) { $html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }      # Dropdown-Listen - definierte Breite
+    if ($spalte > 6 && $spalte < $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }      # auto Breite
+    if ($spalte == $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-right:5px; text-decoration:underline\">".$names[$spalte]."</td>"; } # Button save - auto Breite
   }
   $html.= "</tr>";
 
@@ -583,25 +584,28 @@ sub Timer_FW_Detail {
     # Log3 $name, 3, "$name: Zeile $zeile, id $id, Start";
     my @select_Value = split(',', ReadingsVal($name, 'Timer_'.$timer_nr[$zeile], "$description_all,$description_all,$description_all,$description_all,$description_all,00,Lampe,on,0,0,0,0,0,0,0,0,,"));
     for(my $spalte = 1; $spalte <= $cnt_max; $spalte++) {
-      $style_code1 .= "Padding-bottom:5px; " if ($zeile == $Timers_Count - 1);  # letzte Zeile
-      $html.= "<td align=\"center\" style=\"$style_code1\">".sprintf("%02s", $timer_nr[$zeile])."</td>" if ($spalte == 1);  # Spalte Timer-Nummer
+      if ($zeile == $Timers_Count - 1) { $style_code1 .= "Padding-bottom:5px; "; }                                              # letzte Zeile
+
+      if ($spalte == 1) { $html.= "<td align=\"center\" style=\"$style_code1\">".sprintf("%02s", $timer_nr[$zeile])."</td>"; }  # Spalte Timer-Nummer
       if ($spalte >=2 && $spalte <= 7) {              ## DropDown-Listen fuer Jahr, Monat, Tag, Stunde, Minute, Sekunde
         my $start = 0;                                # Stunde, Minute, Sekunde
         my $stop = 12;                                # Monat
         my $step = 1;                                 # Jahr, Monat, Tag, Stunde, Minute
-        $start = substr($time,0,4) if ($spalte == 2); # Jahr
-        $stop = $start + 10 if ($spalte == 2);        # Jahr
-        $start = 1 if ($spalte == 3 || $spalte == 4); # Monat, Tag
-        $stop = 31 if ($spalte == 4);                 # Tag
-        $stop = 23 if ($spalte == 5);                 # Stunde
-        $stop = 59 if ($spalte == 6);                 # Minute
-        $stop = 50 if ($spalte == 7);                 # Sekunde
-        $step = 10 if ($spalte == 7);                 # Sekunde
+
+        if ($spalte == 2) { $start = substr($time,0,4); } # Jahr
+        if ($spalte == 2) { $stop = $start + 10; }        # Jahr
+        if ($spalte == 3 || $spalte == 4) { $start = 1; } # Monat, Tag
+        if ($spalte == 4) { $stop = 31; }                 # Tag
+        if ($spalte == 5) { $stop = 23; }                 # Stunde
+        if ($spalte == 6) { $stop = 59; }                 # Minute
+
+        if ($spalte == 7) { $stop = 50; }                 # Sekunde
+        if ($spalte == 7) { $step = 10 ; }                # Sekunde
         $id++;
 
         # Log3 $name, 3, "$name: Zeile $zeile, id $id, select";
         $html.= "<td align=\"center\" style=\"$style_code1\"><select id=\"".$id."\">";  # id need for java script
-        $html.= "<option>$description_all</option>" if ($spalte <= 6);     # Jahr, Monat, Tag, Stunde, Minute
+        if ($spalte <= 6) { $html.= "<option>$description_all</option>"; } # Jahr, Monat, Tag, Stunde, Minute
         if ($spalte == 5 || $spalte == 6) {                                # Stunde, Minute
           $selected = $select_Value[$spalte-2] eq $designations[4] ? "selected=\"selected\"" : '';
           $html.= "<option $selected value=\"".$designations[4]."\">".$designations[4]."</option>";   # Sonnenaufgang -> pos 4 array
@@ -618,8 +622,8 @@ sub Timer_FW_Detail {
       if ($spalte == 8) {  ## Spalte Geraete
         $id ++;
         my $comment = '';
-        $comment = AttrVal($select_Value[$spalte-2],'alias','') if (AttrVal($name,'Show_DeviceInfo','') eq 'alias');
-        $comment = AttrVal($select_Value[$spalte-2],'comment','') if (AttrVal($name,'Show_DeviceInfo','') eq 'comment');
+        if (AttrVal($name,'Show_DeviceInfo','') eq 'alias') { $comment = AttrVal($select_Value[$spalte-2],'alias',''); }
+        if (AttrVal($name,'Show_DeviceInfo','') eq 'comment') { $comment = AttrVal($select_Value[$spalte-2],'comment',''); }
         $html.= "<td align=\"center\" style=\"$style_code1\"><input size=\"$Table_Size_TextBox\" type=\"text\" placeholder=\"Timer_".($zeile + 1)."\" id=\"".$id."\" value=\"".$select_Value[$spalte-2]."\"><br><small>$comment</small></td>";
       }
 
@@ -627,23 +631,23 @@ sub Timer_FW_Detail {
         $id ++;
         $html.= "<td align=\"center\" style=\"$style_code1\"><select id=\"".$id."\">";              # id need for java script
         foreach (@action) {
-          $html.= "<option> $_ </option>" if ($select_Value[$spalte-2] ne $_);
-          $html.= "<option selected=\"selected\">".$select_Value[$spalte-2]."</option>" if ($select_Value[$spalte-2] eq $_);
+          if ($select_Value[$spalte-2] ne $_) { $html.= "<option> $_ </option>"; }
+          if ($select_Value[$spalte-2] eq $_) { $html.= "<option selected=\"selected\">".$select_Value[$spalte-2]."</option>"; }
         }
         $html.="</select></td>";
       }
 
       if ($spalte > 9 && $spalte < $cnt_max) {  ## Spalte Wochentage + aktiv
         $id ++;
-        $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"0\" onclick=\"Checkbox(".$id.")\"></td>" if ($select_Value[$spalte-2] eq '0');
-        $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"1\" onclick=\"Checkbox(".$id.")\" checked></td>" if ($select_Value[$spalte-2] eq '1');
+        if ($select_Value[$spalte-2] eq '0') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"0\" onclick=\"Checkbox(".$id.")\"></td>"; }
+        if ($select_Value[$spalte-2] eq '1') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"1\" onclick=\"Checkbox(".$id.")\" checked></td>"; }
       }
 
       if ($spalte == $cnt_max) {  ## Button Speichern
         $id ++;
         $html.= "<td align=\"center\" style=\"$style_code1 Padding-right:5px\"> <INPUT type=\"reset\" onclick=\"pushed_savebutton(".$id.")\" value=\"&#128190;\"/></td>"; # &#128427; &#128190;
       }
-      Log3 $name, 5, "$name: attr2html | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)" if ($spalte > 1 && $spalte < $cnt_max);
+      if ($spalte > 1 && $spalte < $cnt_max) { Log3 $name, 5, "$name: attr2html | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
     }
     $html.= "</tr>";   ## Zeilenende
   }
@@ -733,7 +737,7 @@ sub FW_pushed_savebutton {
 
   Log3 $name, 5, "$name: FW_pushed_savebutton is running";
 
-  return 'ERROR: Comma not allowed in description!' if ($cnt_names > 17);
+  if ($cnt_names > 17) { return 'ERROR: Comma not allowed in description!'; }
 
   foreach my $d (sort keys %{$hash->{READINGS}}) {
     if ($d =~ /^Timer_(\d+)$/xms) {
@@ -750,12 +754,12 @@ sub FW_pushed_savebutton {
     Log3 $name, 5, "$name: FW_pushed_savebutton | ".$names[$i].' -> '.$selected_buttons[$i];
     ## to set time to check input ## SA -> pos 4 array | SU -> pos 5 array ##
     if ($i >= 1 && $i <=6 && ( $selected_buttons[$i] ne $description_all && $selected_buttons[$i] ne $designations[4] && $selected_buttons[$i] ne $designations[5] )) {
-      $sec = $selected_buttons[$i] if ($i == 6);
-      $min = $selected_buttons[$i] if ($i == 5);
-      $hour = $selected_buttons[$i] if ($i == 4);
-      $mday = $selected_buttons[$i] if ($i == 3);
-      $month = $selected_buttons[$i]-1 if ($i == 2);
-      $year = $selected_buttons[$i]-1900 if ($i == 1);
+      if ($i == 6) { $sec = $selected_buttons[$i]; }
+      if ($i == 5) { $min = $selected_buttons[$i]; }
+      if ($i == 4) { $hour = $selected_buttons[$i]; }
+      if ($i == 3) { $mday = $selected_buttons[$i]; }
+      if ($i == 2) { $month = $selected_buttons[$i]-1; }
+      if ($i == 1) { $year = $selected_buttons[$i]-1900; }
     }
 
     if ($i == 7) {
@@ -775,14 +779,14 @@ sub FW_pushed_savebutton {
     }
   }
 
-  return 'ERROR: The time is in the past. Please set a time in the future!' if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year)) > 0);
-  return 'ERROR: The next switching point is too small!' if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60);
+  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
+  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
-  readingsDelete($hash,'Timer_'.sprintf("%02s", $timer).'_set') if ($selected_buttons[8] ne 'DEF' && ReadingsVal($name, 'Timer_'.sprintf("%02s", $timer).'_set', 0) ne '0');
+  if ($selected_buttons[8] ne 'DEF' && ReadingsVal($name, 'Timer_'.sprintf("%02s", $timer).'_set', 0) ne '0') { readingsDelete($hash,'Timer_'.sprintf("%02s", $timer).'_set'); }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
   my $newValue = substr($selected_buttons,(index($selected_buttons,',') + 1));
-  $reload++ if ($oldValue ne $newValue && $FW_room_dupl);
+  if ($oldValue ne $newValue && $FW_room_dupl) { $reload++; }
 
   my @Value_split = split(/,/xms , $oldValue);
   $oldValue = $Value_split[7];
@@ -811,7 +815,7 @@ sub FW_pushed_savebutton {
 
   if ($oldValue eq 'DEF' && ($newValue eq 'on' || $newValue eq 'off')) {
     $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' is saved and deleted from userattr';
-    Timer_delFromUserattr($hash,$userattrName) if (AttrVal($name, 'userattr', undef));
+    if (AttrVal($name, 'userattr', undef)) { Timer_delFromUserattr($hash,$userattrName); }
     addStructChange('modify', $name, "attr $name userattr");                     # note with question mark
     $reload++;
   }
@@ -824,13 +828,13 @@ sub FW_pushed_savebutton {
   ## popup user message (jump to javascript) ##
   if ($popup != 0) {
     FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", '');
-    $reload = 0 if ($reload != 0); # reset, need to right running
+    if ($reload != 0) { $reload = 0; } # reset, need to right running
   }
 
   ## refresh site, need for userattr & right view checkboxes ##
   FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "location.reload('true')", '') if ($reload != 0);
 
-  Timer_Check($hash) if ($selected_buttons[16] eq '1' && ReadingsVal($name, 'internalTimer', 'stop') eq 'stop');
+  if ($selected_buttons[16] eq '1' && ReadingsVal($name, 'internalTimer', 'stop') eq 'stop') { Timer_Check($hash); }
 
   return;
 }
@@ -890,7 +894,9 @@ sub Timer_Check {
   my $name = $hash->{NAME};
   my @timestamp_values = split(/-|\s|:/xms , TimeNow());     # Time now (2016-02-16 19:34:24) splitted in array
   my $dayOfWeek = strftime('%w', localtime);              # Wochentag
-  $dayOfWeek = 7 if ($dayOfWeek eq '0');                  # Sonntag nach hinten (Position 14 im Array)
+
+  if ($dayOfWeek eq '0') { $dayOfWeek = 7; }              # Sonntag nach hinten (Position 14 im Array)
+
   my $intervall = 60;                                     # Intervall to start new InternalTimer (standard)
   my $cnt_activ = 0;                                      # counter for activ timers
   my ($seconds, $microseconds) = gettimeofday();
@@ -911,28 +917,32 @@ sub Timer_Check {
       my $set = 1;
       if ($values[15] == 1) {                                 # Timer aktiv
         $cnt_activ++;
-        $values[3] = $sunriseValues[0] if $values[3] eq $designations[4]; # Stunde | Sonnenaufgang -> pos 4 array
-        $values[4] = $sunriseValues[1] if $values[4] eq $designations[4]; # Minute | Sonnenaufgang -> pos 4 array
-        $values[3] = $sunsetValues[0] if $values[3] eq $designations[5];  # Stunde | Sonnenuntergang -> pos 5 array
-        $values[4] = $sunsetValues[1] if $values[4] eq $designations[5];  # Stunde | Sonnenuntergang -> pos 5 array
-        for (my $i = 0;$i < 5;$i++) {                                     # Jahr, Monat, Tag, Stunde, Minute
-          $set = 0 if ($values[$i] ne $description_all && $values[$i] ne $timestamp_values[$i]);
+        if ($values[3] eq $designations[4]) { $values[3] = $sunriseValues[0]; } # Stunde | Sonnenaufgang -> pos 4 array
+        if ($values[4] eq $designations[4]) { $values[4] = $sunriseValues[1]; } # Minute | Sonnenaufgang -> pos 4 array
+        if ($values[3] eq $designations[5]) { $values[3] = $sunsetValues[0]; }  # Stunde | Sonnenuntergang -> pos 5 array
+        if ($values[4] eq $designations[5]) { $values[4] = $sunsetValues[1]; }  # Stunde | Sonnenuntergang -> pos 5 array
+
+        for (my $i = 0;$i < 5;$i++) {                                           # Jahr, Monat, Tag, Stunde, Minute
+          if ($values[$i] ne $description_all && $values[$i] ne $timestamp_values[$i]) { $set = 0; }
         }
-        $set = 0 if ($values[(($dayOfWeek*1) + 7)] eq '0');                     # Wochentag
-        $set = 0 if ($values[5] eq '00' && $timestamp_values[5] ne '00');       # Sekunde (Intervall 60)
-        $set = 0 if ($values[5] ne '00' && $timestamp_values[5] ne $values[5]); # Sekunde (Intervall 10)
-        $intervall = 10 if ($values[5] ne '00');
+
+        if ($values[(($dayOfWeek*1) + 7)] eq '0') { $set = 0; }                     # Wochentag
+        if ($values[5] eq '00' && $timestamp_values[5] ne '00') { $set = 0; }       # Sekunde (Intervall 60)
+        if ($values[5] ne '00' && $timestamp_values[5] ne $values[5]) { $set = 0; } # Sekunde (Intervall 10)
+        if ($values[5] ne '00') { $intervall = 10; }
+
         Log3 $name, 5, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7).' ('.$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
+
         if ($set == 1) {
           Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
-          CommandSet($hash, $values[6].' '.$values[7]) if ($values[7] ne 'DEF');
+          if ($values[7] ne 'DEF') { CommandSet($hash, $values[6].' '.$values[7]); }
           # $state = "$d set $values[6] $values[7] accomplished";
           readingsSingleUpdate($hash, 'state' , "$d set $values[6] $values[7] accomplished", 1);
           if ($values[7] eq 'DEF') {
             if (AttrVal($name, $d.'_set', undef)) {
               Log3 $name, 5, "$name: $d - exec at command: ".AttrVal($name, $d.'_set', undef);
               my $ret = AnalyzeCommandChain(undef, SemicolonEscape(AttrVal($name, $d.'_set', undef)));
-              Log3 $name, 3, "$name: $d\_set - ERROR: $ret" if($ret);
+              if ($ret) { Log3 $name, 3, "$name: $d\_set - ERROR: $ret"; }
             } else {
               $state = "$d missing userattr to work!";
             }
@@ -960,12 +970,12 @@ sub Timer_Check {
   }
   $intervall = ($intervall - $microseconds / 1000000); # Korrektur Zeit wegen Drift
   RemoveInternalTimer($hash);
-  InternalTimer(gettimeofday()+$intervall, 'Timer_Check', $hash, 0) if ($cnt_activ > 0);
+  if ($cnt_activ > 0) { InternalTimer(gettimeofday()+$intervall, 'Timer_Check', $hash, 0); }
 
-  $state = 'no timer active' if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop');
-  readingsBulkUpdate($hash, 'state' , "$state", 1) if defined($state);
-  readingsBulkUpdate($hash, 'internalTimer' , 'stop') if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop');
-  readingsBulkUpdate($hash, 'internalTimer' , $intervall, 0) if($cnt_activ > 0);
+  if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop') { $state = 'no timer active'; }
+  if (defined $state) { readingsBulkUpdate($hash, 'state' , "$state", 1); }
+  if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop') { readingsBulkUpdate($hash, 'internalTimer' , 'stop'); }
+  if ($cnt_activ > 0) { readingsBulkUpdate($hash, 'internalTimer' , $intervall, 0); }
   readingsEndUpdate($hash, 1);
 
   return;
@@ -984,7 +994,7 @@ sub Timer_PawList {
       my @values = split(',' , ReadingsVal($name, $d, ''));
       ### clear value, "Probably associated with" ne DEF
       if ($values[7] ne 'DEF') {
-        if (not grep /$values[6]/xms, $associatedWith) {
+        if (not grep { /$values[6]/xms } $associatedWith) {
           $associatedWith = $associatedWith eq '' ? $values[6] : $associatedWith.','.$values[6];
         }
       ### Self-administration test, "Probably associated with" for DEF
@@ -995,7 +1005,7 @@ sub Timer_PawList {
           $Timer_set_attr =~ /(get|set)\s(\w+)\s/xms;
           if ($2) {
             Log3 $name, 5, "$name: Timer_PawList | found in DEF: ".$2;
-            if (not grep /$2/xms, $associatedWith) {
+            if (not grep { /$2/xms } $associatedWith) {
               $associatedWith = $associatedWith eq '' ? $2 : $associatedWith.','.$2;
             }
           }
@@ -1009,7 +1019,7 @@ sub Timer_PawList {
   if ($associatedWith ne '') {
     CommandSetReading(undef, "$name .associatedWith $associatedWith");  
   } else {
-    readingsDelete($hash,'.associatedWith') if(ReadingsVal($name, '.associatedWith', undef));
+    if(ReadingsVal($name, '.associatedWith', undef)) { readingsDelete($hash,'.associatedWith'); }
   }
   ## current list "Probably associated with" finish ##
   return;
