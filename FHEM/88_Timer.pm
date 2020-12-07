@@ -460,7 +460,7 @@ sub Timer_Notify {
   my $devName = $dev_hash->{NAME};  # Device that created the events
   my $events = deviceEvents($dev_hash, 1);
 
-  if ( $devName eq 'global' && grep { m/^INITIALIZED|REREADCFG$/xms } @{$events} && $typ eq 'Timer' ) {
+  if($devName eq "global" && grep(m/^INITIALIZED|REREADCFG$/xms, @{$events}) && $typ eq "Timer") {
     Log3 $name, 5, "$name: Notify is running and starting $name";
 
     ### Compatibility Check Def to DEF ###
