@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 21514 2020-03-25 17:30:43Z HomeAuto_User $
+# $Id: 88_Timer.pm 21514 2021-01-19 17:30:43Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -9,7 +9,7 @@
 # https://forum.fhem.de/index.php/board,20.0.html
 # https://forum.fhem.de/index.php/topic,103848.html | https://forum.fhem.de/index.php/topic,103986.0.html
 #
-# 2019 | 2020 - HomeAuto_User, elektron-bbs
+# 2019 - ... HomeAuto_User, elektron-bbs
 #################################################################
 # notes:
 # - module mit package umsetzen
@@ -21,6 +21,8 @@ package main;
 use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
+
+our $VERSION = '2021-01-19';
 
 my @action = qw(on off DEF);
 my @names;
@@ -107,6 +109,8 @@ sub Timer_Define {
     ### Attributes ###
     if (!defined AttrVal($name, 'room', undef)) { CommandAttr($hash,"$name room $typ"); }       # set room, if only undef --> new def
   }
+
+  $hash->{versionModule} = $VERSION;
 
   ### default value´s ###
   readingsBeginUpdate($hash);
