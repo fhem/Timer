@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 21514 2021-01-19 17:30:43Z HomeAuto_User $
+# $Id: 88_Timer.pm 21514 2021-01-20 17:30:43Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
-our $VERSION = '2021-01-19';
+our $VERSION = '2021-01-20';
 
 my @action = qw(on off DEF);
 my @names;
@@ -1074,19 +1074,21 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 
 <br><br>
 <u>Interval switching of the timer is only possible in the following variants:</u><br>
-<ul><li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
-   <li>hourly, define second + minute and set all other values ​​(hour, day, month, year) to <code>all</code></li>
-   <li>daily, define second + minute + hour and set all other values ​​(day, month, year) to <code>all</code></li>
-   <li>monthly, define second + minute + hour + day and set all other values ​​(month, year) to <code>all</code></li>
-   <li>annually, define second + minute + hour + day + month and set the value (year) to <code>all</code></li>
-   <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
-   <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li></ul>
+<ul>
+  <li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
+  <li>hourly, define second + minute and set all other values ​​(hour, day, month, year) to <code>all</code></li>
+  <li>daily, define second + minute + hour and set all other values ​​(day, month, year) to <code>all</code></li>
+  <li>monthly, define second + minute + hour + day and set all other values ​​(month, year) to <code>all</code></li>
+  <li>annually, define second + minute + hour + day + month and set the value (year) to <code>all</code></li>
+  <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
+  <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li>
+</ul>
 <br>
 Any interval circuits can be defined in which in the associated timer attribute e.g. the following Perl code is inserted:<br>
 <code>{if ($min % 5 == 0) {fhem("set FS10_6_11 toggle");}}</code><br>
-This timer would run every 5 minutes if the timer is configured to run in a minute as described.<br>
+This timer would run every 5 minutes if the timer is configured to run in a minute as described.<br><br>
 The following variables for time and date are available:<br>
-<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $week, $hms, $hm, $md, $ymd, $we, $twe</code><br>
+<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $hms, $we, $today</code><br>
 This makes it possible, for example, to have a timer run every Sunday at 15:30:00.
 <br><br>
 
@@ -1191,19 +1193,21 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 
 <br><br>
 <u>Eine Intervallschaltung des Timer ist nur m&ouml;glich in folgenden Varianten:</u><br>
-<ul><li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>st&uuml;ndlich, Sekunde + Minute definieren und alle anderen Werte (Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>t&auml;glich, Sekunde + Minute + Stunde definieren und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>monatlich, Sekunde + Minute + Stunde + Tag definieren und alle anderen Werte (Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>j&auml;hrlich, Sekunde + Minute + Stunde + Tag + Monat definieren und den Wert (Jahr) auf <code>alle</code> setzen</li>
-   <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li></ul>
+<ul>
+  <li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>st&uuml;ndlich, Sekunde + Minute definieren und alle anderen Werte (Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>t&auml;glich, Sekunde + Minute + Stunde definieren und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>monatlich, Sekunde + Minute + Stunde + Tag definieren und alle anderen Werte (Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>j&auml;hrlich, Sekunde + Minute + Stunde + Tag + Monat definieren und den Wert (Jahr) auf <code>alle</code> setzen</li>
+  <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+</ul>
 <br>
 Beliebige Intervallschaltungen k&ouml;nnen definiert werden, in dem im zugeh&ouml;rigen Timer-Attribut z.B. folgender Perl-Code eingef&uuml;gt wird:<br>
 <code>{if ($min % 5 == 0) {fhem("set FS10_6_11 toggle");}}</code><br>
-Dieser Timer w&uuml;rde dann aller 5 Minuten ausgef&uuml;hrt, wenn der Timer wie beschrieben auf min&uuml;tliches Ausf&uuml;hren konfiguriert ist.<br>
+Dieser Timer w&uuml;rde dann aller 5 Minuten ausgef&uuml;hrt, wenn der Timer wie beschrieben auf min&uuml;tliches Ausf&uuml;hren konfiguriert ist.<br><br>
 Folgende Variablen f&uuml;r Zeit- und Datumsangaben stehen zur Verf&uuml;gung:<br>
-<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $week, $hms, $hm, $md, $ymd, $we, $twe</code><br>
+<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $hms, $we, $today</code><br>
 Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30:00 Uhr etwas ausf&uuml;hren zu lassen.
 <br><br>
 
