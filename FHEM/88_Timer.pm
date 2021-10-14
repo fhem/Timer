@@ -1137,7 +1137,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
   <ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
   Shows or hides the sunrise and sunset with the local time above the table. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
-  Correction value to change the length of the text box for the device name / designation. (default 20)</li><a name=" "></a></ul><br>
+  Correction value to change the length of the text box for the device name / designation. (default 90)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Style">Table_Style</a><br>
   Turns on the defined table style. (on | off, default off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_View_in_room">Table_View_in_room</a><br>
@@ -1256,7 +1256,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
   <ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
   Blendet den Sonnenauf und Sonnenuntergang mit der lokalen Zeit &uuml;ber der Tabelle ein oder aus. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
-  Korrekturwert um die L&auml;nge der Textbox f&uuml;r die Ger&auml;tenamen / Bezeichung zu ver&auml;ndern. (standard 20)</li><a name=" "></a></ul><br>
+  Korrekturwert um die L&auml;nge der Textbox f&uuml;r die Ger&auml;tenamen / Bezeichung zu ver&auml;ndern. (standard 90)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Style">Table_Style</a><br>
   Schaltet den definierten Tabellen-Style ein. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_View_in_room">Table_View_in_room</a><br>
