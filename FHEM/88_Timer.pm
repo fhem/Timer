@@ -895,7 +895,7 @@ sub FW_pushed_savebutton {
   if ($hash->{helper}->{changes} && $hash->{helper}->{changes} != 0) {
     ## popup user message DEF (jump to javascript) ##
     if ($popup != 0) {
-      Log3 $name, 3, "$name: FW_pushed_savebutton | popup user info for DEF";
+      Log3 $name, 4, "$name: FW_pushed_savebutton | popup user info for DEF";
       FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", '');
       $hash->{helper}->{refresh_locked}++; # reset, refresh closed popup -> need to right running
     }
