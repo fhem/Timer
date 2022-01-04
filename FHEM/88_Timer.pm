@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 00000 2021-10-21 17:01:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 00000 2022-01-04 15:01:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
-our $VERSION = '2021-10-21';
+our $VERSION = '2022-04-01';
 
 my @action = qw(on off DEF);
 my @names;
@@ -849,7 +849,7 @@ sub FW_pushed_savebutton {
     }
   }
 
-  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
+  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
   if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
