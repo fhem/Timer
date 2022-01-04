@@ -850,7 +850,7 @@ sub FW_pushed_savebutton {
   }
 
   if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
-  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
+  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
   my $newValue = substr($selected_buttons,(index($selected_buttons,',') + 1));
