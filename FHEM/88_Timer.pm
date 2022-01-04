@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 21514 2020-03-25 17:30:43Z HomeAuto_User $
+# $Id: 88_Timer.pm 00000 2022-01-04 15:01:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -9,7 +9,7 @@
 # https://forum.fhem.de/index.php/board,20.0.html
 # https://forum.fhem.de/index.php/topic,103848.html | https://forum.fhem.de/index.php/topic,103986.0.html
 #
-# 2019 | 2020 - HomeAuto_User, elektron-bbs
+# 2019 - ... HomeAuto_User, elektron-bbs
 #################################################################
 # notes:
 # - module mit package umsetzen
@@ -22,6 +22,8 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
+our $VERSION = '2022-04-01';
+
 my @action = qw(on off DEF);
 my @names;
 my @designations;
@@ -30,13 +32,13 @@ my $cnt_attr_userattr = 0;
 my $language = uc(AttrVal('global', 'language', 'EN'));
 
 if ($language eq 'DE') {
-  @designations = ('Sonnenaufgang','Sonnenuntergang','lokale Zeit','Uhr','SA','SU');
-  $description_all = 'alle';   # using in RegEx
-  @names = ('Nr.','Jahr','Monat','Tag','Stunde','Minute','Sekunde','Ger&auml;t oder Bezeichnung','Aktion','Mo','Di','Mi','Do','Fr','Sa','So','aktiv','');
+  @designations = ('Sonnenaufgang','Sonnenuntergang','lokale Zeit','Uhr','SA','SU','Einstellungen speichern');
+  $description_all = 'alle';    # using in RegEx
+  @names = ('Nr.','Jahr','Monat','Tag','Stunde','Minute','Sekunde','Ger&auml;t oder Bezeichnung','Aktion','Mo','Di','Mi','Do','Fr','Sa','So','aktiv');
 } else {
-  @designations = ('Sunrise','Sunset','local time','','SR','SS');
+  @designations = ('Sunrise','Sunset','local time','','SR','SS','settings save');
   $description_all = 'all';     # using in RegEx
-  @names = ('No.','Year','Month','Day','Hour','Minute','Second','Device or label','Action','Mon','Tue','Wed','Thu','Fri','Sat','Sun','active','');
+  @names = ('No.','Year','Month','Day','Hour','Minute','Second','Device or label','Action','Mon','Tue','Wed','Thu','Fri','Sat','Sun','active');
 }
 
 ##########################
@@ -52,7 +54,7 @@ sub Timer_Initialize {
                           'Table_Border:on,off '.
                           'Table_Header_with_time:on,off '.
                           'Table_Style:on,off '.
-                          'Table_Size_TextBox:15,20,25,30,35,40,45,50 '.
+                          'Table_Size_TextBox:15,20,25,30,35,40,45,50,55,60,65,70,75,80,85 '.
                           'Table_View_in_room:on,off '.
                           'stateFormat:textField-long ';
   $hash->{DefFn}        = 'Timer_Define';
@@ -108,6 +110,8 @@ sub Timer_Define {
     if (!defined AttrVal($name, 'room', undef)) { CommandAttr($hash,"$name room $typ"); }       # set room, if only undef --> new def
   }
 
+  $hash->{versionModule} = $VERSION;
+
   ### default value´s ###
   readingsBeginUpdate($hash);
   readingsBulkUpdate($hash, 'state' , 'Defined');
@@ -126,6 +130,7 @@ sub Timer_Set {
   my $cmd2 = $a[1];
   my $Timers_Count = 0;
   my $Timers_Count2;
+  my $Timers_Nrs = '';
   my $Timers_diff = 0;
   my $Timer_preselection = AttrVal($name,'Timer_preselection','off');
   my $value;
@@ -134,18 +139,57 @@ sub Timer_Set {
     if ($d =~ /^Timer_(\d)+$/xms) {
       $Timers_Count++;
       $d =~ s/Timer_//ms;
-      if ($Timers_Count == 1) { $setList.= 'deleteTimer:'; }
-      $setList.= $d.',';
+      $Timers_Nrs.= $d.',';
     }
   }
 
-  if ($Timers_Count != 0) {
-    $setList = substr($setList, 0, -1);  # cut last ,
-    $setList.= ' saveTimers:noArg';
+  $Timers_Nrs = substr($Timers_Nrs, 0, -1);
+
+  if ($Timers_Count > 0) {
+    $setList.= 'deleteTimer:'.$Timers_Nrs.' ';
+    $setList.= 'onTimer:'.$Timers_Nrs.' ';
+    $setList.= 'offTimer:'.$Timers_Nrs.' ';
+    $setList.= 'onTimerAll:noArg ';
+    $setList.= 'offTimerAll:noArg ';
+    $setList.= 'saveTimers:noArg';
+    if ($Timers_Count > 1) { $setList.= ' sortTimer:noArg'; }
   }
 
-  if ($Timers_Count > 1) { $setList.= ' sortTimer:noArg'; }
   if ($cmd ne '?') { Log3 $name, 4, "$name: Set | cmd=$cmd"; }
+
+  ##### START cmd´s #####
+  if ($cmd =~ /o(n|ff)Timer$/) {
+    my $value = substr(ReadingsVal($name, 'Timer_'.$cmd2, 0), 0, -1);
+    $value.= $cmd eq 'onTimer' ? 1 : 0 ;
+    my $state = $cmd eq 'onTimer' ? 'on' : 'off' ;
+    readingsBeginUpdate($hash);
+    readingsBulkUpdate($hash, 'Timer_'.$cmd2 , $value);
+    readingsBulkUpdate($hash, 'state' , "Timer_$cmd2 switched $state");
+    readingsEndUpdate($hash, 1);
+    InternalTimer(gettimeofday(), 'Timer_Check', $hash, 0);
+  }
+
+  if ($cmd =~ /TimerAll$/) {
+    readingsBeginUpdate($hash);
+    foreach my $d (sort keys %{$hash->{READINGS}}) {
+      if ($d =~ /^Timer_(\d)+$/xms) {
+        $d =~ s/Timer_//ms;
+        my $value = substr(ReadingsVal($name, 'Timer_'.$d, 0), 0, -1);
+        $value.= substr($cmd,0,2) eq 'on' ? 1 : 0 ;
+        readingsBulkUpdate($hash, 'Timer_'.$d , $value);
+      }
+    }
+    readingsEndUpdate($hash, 1);
+
+    if ($cmd eq 'onTimerAll') {
+      InternalTimer(gettimeofday(), 'Timer_Check', $hash, 0);
+      readingsSingleUpdate($hash, 'state' , "all Timers on", 1);
+    }
+    if ($cmd eq 'offTimerAll') {
+      RemoveInternalTimer($hash, 'Timer_Check');
+      readingsSingleUpdate($hash, 'state' , "all Timers off", 1);
+    }
+  }
 
   if ($cmd eq 'sortTimer') {
     my @timers_unsortet;
@@ -226,6 +270,8 @@ sub Timer_Set {
       }
     }
 
+    if ($Timers_Count > 99) { return 'ERROR: The limit of timers has been reached. More than 99 Timers are not supported!' };
+
     if ($Timer_preselection eq 'on') {
       my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime(time);
       $value = ($year + 1900).','.sprintf("%02s", ($mon + 1)).','.sprintf("%02s", $mday).','.sprintf("%02s", $hour).','.sprintf("%02s", $min).',00,,on,1,1,1,1,1,1,1,0';
@@ -302,11 +348,11 @@ sub Timer_Get {
           $line++;
           # Timer_04,alle,alle,alle,12,00,00,Update FHEM,Def,1,0,0,0,0,0,0,1
           if ($_ =~ /^(.*),.*,.*,.*,.*,.*,.*,.*,(.*),.*,.*,.*,.*,.*,.*,.*,[0-1]$/xms) {
-            chomp ($_);                                 # Zeilenende entfernen
-            $_ =~ s/,Def,/,DEF,/gxms if ($2 =~ /Def/xms);  # Compatibility modify Def to DEF
-            push(@lines_readings,$_);                   # lines in array
-            my @values = split(',',$_);                 # split line in array to check
-            #$error.= "- scalar arrray\n" if (scalar(@values) != 17);
+            chomp ($_);                                   # Zeilenende entfernen
+            $_ =~ s/,Def,/,DEF,/gxms if ($2 =~ /Def/xms); # Compatibility modify Def to DEF
+            push(@lines_readings,$_);                     # lines in array
+            my @values = split(',',$_);                   # split line in array to check
+            #$error.= "- scalar arrray\n" if (scalar(@values) != 16);
             push(@attr_values_names, $values[0].'_set') if($values[8] eq 'DEF');
             for (my $i=0;$i<@values;$i++) {
               if ($i == 0 && $values[0] !~ /^Timer_\d{2}$/xms) { $error.= '- '.$values[0]." is no $name description"; }
@@ -430,7 +476,7 @@ sub Timer_Attr {
         $cnt_attr_userattr = 0;
       }
     }
-    
+
     if ($attrName =~ /^Timer_\d{2}_set$/xms) {
       Log3 $name, 3, "$name: Attr | Attributes $attrName deleted";
       InternalTimer(gettimeofday()+0.1, 'Timer_PawList', $hash);
@@ -443,10 +489,8 @@ sub Timer_Attr {
 #####################
 sub Timer_Undef {
   my ($hash, $arg) = @_;
-  my $name = $hash->{NAME};
 
   RemoveInternalTimer($hash, 'Timer_Check');
-  Log3 $name, 4, "$name: Undef | device is delete";
 
   return;
 }
@@ -461,7 +505,7 @@ sub Timer_Notify {
   my $events = deviceEvents($dev_hash, 1);
 
   if($devName eq "global" && grep(m/^INITIALIZED|REREADCFG$/xms, @{$events}) && $typ eq "Timer") {
-    Log3 $name, 5, "$name: Notify is running and starting $name";
+    Log3 $name, 5, "$name: Notify | running and starting $name";
 
     ### Compatibility Check Def to DEF ###
     Log3 $name, 4, "$name: Notify Compatibility check";
@@ -490,16 +534,16 @@ sub Timer_FW_Detail {
   my $Table_Border = AttrVal($name,'Table_Border','off');
   my $Table_Border_Cell = AttrVal($name,'Table_Border_Cell','off');
   my $Table_Header_with_time = AttrVal($name,'Table_Header_with_time','off');
-  my $Table_Size_TextBox = AttrVal($name,'Table_Size_TextBox',20);
+  my $Table_Size_TextBox = AttrVal($name,'Table_Size_TextBox',90);
   my $Table_Style = AttrVal($name,'Table_Style','off');
   my $Table_View_in_room = AttrVal($name,'Table_View_in_room','on');
   my $style_code1 = '';
   my $style_code2 = '';
-  my $time = FmtDateTime(time());
   my $horizon = AttrVal($name,'Offset_Horizon','REAL');
   my $FW_room_dupl = $FW_room;
   my @timer_nr;
   my $cnt_max = scalar(@names);
+  my $timer_nr_all = '';
 
   if ((!AttrVal($name, 'room', undef) && $FW_detail eq '') || ($Table_View_in_room eq 'off' && $FW_detail eq '')) { return $html; }
 
@@ -542,12 +586,10 @@ sub Timer_FW_Detail {
     </style>';
   }
 
-  Log3 $name, 5, "$name: attr2html is running";
-
   foreach my $d (sort keys %{$hash->{READINGS}}) {
     if ($d =~ /^Timer_\d+$/xms) {
       $Timers_Count++;
-      push(@timer_nr, substr($d,index($d,'_')+1));    
+      push(@timer_nr, substr($d,index($d,'_')+1));
     }
   }
 
@@ -556,13 +598,14 @@ sub Timer_FW_Detail {
   $html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq 'on');
   $html.= "<div id=\"table\"><table class=\"block wide\" style=\"$style_code2\">";
 
-  #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv speichern
-  #         -------------------------------------------------------------------------------------------------
+  #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv
+  #         ---------------------------------------------------------------------------------------
   #               2019  09    03    18     15     00      Player  on     0  0  0  0  0  0  0  0
-  # Spalte: 0     1     2     3     4      5      6       7       8      9  10 11 12 13 14 15 16    17
-  #         -------------------------------------------------------------------------------------------------
-  # T 1 id: 20    21    22    23    24     25     26      27      28     29 30 31 32 33 34 35 36    37         ($id = timer_nr * 20 + $Spalte)
-  # T 2 id: 40    41    42    43    44     45     46      47      48     49 50 51 52 53 54 55 56    57         ($id = timer_nr * 20 + $Spalte)
+  # Spalte: 0     1     2     3     4      5      6       7       8      9  10 11 12 13 14 15 16
+  #         ---------------------------------------------------------------------------------------
+  # T 1 id: 20    21    22    23    24     25     26      27      28     29 30 31 32 33 34 35 36   ($id = timer_nr * 20 + $Spalte)
+  # T 2 id: 40    41    42    43    44     45     46      47      48     49 50 51 52 53 54 55 56   ($id = timer_nr * 20 + $Spalte)
+  # Button SPEICHERN
 
   ## Ueberschrift
   $html.= "<tr class=\"odd\">";
@@ -571,42 +614,47 @@ sub Timer_FW_Detail {
   if ($Table_Border_Cell eq 'on') { $style_code1 = "border:1px solid #D8D8D8;"; }
 
   for(my $spalte = 0; $spalte <= $cnt_max - 1; $spalte++) {
-    if ($spalte == 0) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-left:5px; text-decoration:underline\">".$names[$spalte]."</td>"; }            # Timer-Nummer - auto Breite
-    if ($spalte >= 1 && $spalte <= 6) { $html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }      # Dropdown-Listen - definierte Breite
-    if ($spalte > 6 && $spalte < $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }      # auto Breite
-    if ($spalte == $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-right:5px; text-decoration:underline\">".$names[$spalte]."</td>"; } # Button save - auto Breite
+    # Timer-Nummer - auto Breite
+    if ($spalte == 0) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-left:5px; text-decoration:underline\">".$names[$spalte]."</td>"; }
+    # Dropdown-Listen - definierte Breite
+    if ($spalte >= 1 && $spalte <= 6) { $html.= "<td align=\"center\" width=70 style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }
+    # auto Breite
+    if ($spalte > 6 && $spalte < $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; text-decoration:underline\">".$names[$spalte]."</td>"; }
+    # aktiv - auto Breite
+    if ($spalte == $cnt_max - 1) { $html.= "<td align=\"center\" style=\"$style_code1 Padding-top:3px; Padding-right:5px; text-decoration:underline\">".$names[$spalte]."</td>"; }
   }
   $html.= "</tr>";
 
   for(my $zeile = 0; $zeile < $Timers_Count; $zeile++) {
     $html.= sprintf("<tr class=\"%s\">", ($zeile & 1)?"odd":"even");
     my $id = $timer_nr[$zeile] * 20; # id 20, 40, 60 ...
-    # Log3 $name, 3, "$name: Zeile $zeile, id $id, Start";
+    $timer_nr_all.= ( $timer_nr[$zeile]*20 + 16 ).',';
+    #Log3 $name, 3, "$name: FW_Detail | TimerNr $timer_nr[$zeile], Zeile $zeile, id $id, Start";
     my @select_Value = split(',', ReadingsVal($name, 'Timer_'.$timer_nr[$zeile], "$description_all,$description_all,$description_all,$description_all,$description_all,00,Lampe,on,0,0,0,0,0,0,0,0,,"));
     for(my $spalte = 1; $spalte <= $cnt_max; $spalte++) {
       if ($zeile == $Timers_Count - 1) { $style_code1 .= "Padding-bottom:5px; "; }                                              # letzte Zeile
 
       if ($spalte == 1) { $html.= "<td align=\"center\" style=\"$style_code1\">".sprintf("%02s", $timer_nr[$zeile])."</td>"; }  # Spalte Timer-Nummer
-      if ($spalte >=2 && $spalte <= 7) {              ## DropDown-Listen fuer Jahr, Monat, Tag, Stunde, Minute, Sekunde
-        my $start = 0;                                # Stunde, Minute, Sekunde
-        my $stop = 12;                                # Monat
-        my $step = 1;                                 # Jahr, Monat, Tag, Stunde, Minute
+      if ($spalte >=2 && $spalte <= 7) {                  ## DropDown-Listen fuer Jahr, Monat, Tag, Stunde, Minute, Sekunde
+        my $start = 0;                                    # Stunde, Minute, Sekunde
+        my $stop = 12;                                    # Monat
+        my $step = 1;                                     # Jahr, Monat, Tag, Stunde, Minute
 
-        if ($spalte == 2) { $start = substr($time,0,4); } # Jahr
-        if ($spalte == 2) { $stop = $start + 10; }        # Jahr
-        if ($spalte == 3 || $spalte == 4) { $start = 1; } # Monat, Tag
-        if ($spalte == 4) { $stop = 31; }                 # Tag
-        if ($spalte == 5) { $stop = 23; }                 # Stunde
-        if ($spalte == 6) { $stop = 59; }                 # Minute
+        if ($spalte == 2) { $start = substr( FmtDateTime(time()) ,0,4); } # Jahr        -> von 2016-02-16 19:34:24
+        if ($spalte == 2) { $stop = $start + 10; }                        # Jahr        -> maximal 10 Jahre im voraus
+        if ($spalte == 3 || $spalte == 4) { $start = 1; }                 # Monat, Tag
+        if ($spalte == 4) { $stop = 31; }                                 # Tag
+        if ($spalte == 5) { $stop = 23; }                                 # Stunde
+        if ($spalte == 6) { $stop = 59; }                                 # Minute
 
-        if ($spalte == 7) { $stop = 50; }                 # Sekunde
-        if ($spalte == 7) { $step = 10 ; }                # Sekunde
+        if ($spalte == 7) { $stop = 50; }                                 # Sekunde
+        if ($spalte == 7) { $step = 10 ; }                                # Sekunde
         $id++;
 
-        # Log3 $name, 3, "$name: Zeile $zeile, id $id, select";
+        # Log3 $name, 3, "$name: FW_Detail | Zeile $zeile, id $id, select";
         $html.= "<td align=\"center\" style=\"$style_code1\"><select id=\"".$id."\">";  # id need for java script
-        if ($spalte <= 6) { $html.= "<option>$description_all</option>"; } # Jahr, Monat, Tag, Stunde, Minute
-        if ($spalte == 5 || $spalte == 6) {                                # Stunde, Minute
+        if ($spalte <= 6) { $html.= "<option>$description_all</option>"; }              # Jahr, Monat, Tag, Stunde, Minute
+        if ($spalte == 5 || $spalte == 6) {                                             # Stunde, Minute
           $selected = $select_Value[$spalte-2] eq $designations[4] ? "selected=\"selected\"" : '';
           $html.= "<option $selected value=\"".$designations[4]."\">".$designations[4]."</option>";   # Sonnenaufgang -> pos 4 array
           $selected = $select_Value[$spalte-2] eq $designations[5] ? "selected=\"selected\"" : '';
@@ -624,7 +672,7 @@ sub Timer_FW_Detail {
         my $comment = '';
         if (AttrVal($name,'Show_DeviceInfo','') eq 'alias') { $comment = AttrVal($select_Value[$spalte-2],'alias',''); }
         if (AttrVal($name,'Show_DeviceInfo','') eq 'comment') { $comment = AttrVal($select_Value[$spalte-2],'comment',''); }
-        $html.= "<td align=\"center\" style=\"$style_code1\"><input size=\"$Table_Size_TextBox\" type=\"text\" placeholder=\"Timer_".($zeile + 1)."\" id=\"".$id."\" value=\"".$select_Value[$spalte-2]."\"><br><small>$comment</small></td>";
+        $html.= "<td align=\"center\" style=\"$style_code1\"><input style='width:$Table_Size_TextBox%' type=\"text\" placeholder=\"Timer_".($zeile + 1)."\" id=\"".$id."\" value=\"".$select_Value[$spalte-2]."\"><br><small>$comment</small></td>";
       }
 
       if ($spalte == 9) {  ## DropDown-Liste Aktion
@@ -637,23 +685,21 @@ sub Timer_FW_Detail {
         $html.="</select></td>";
       }
 
-      if ($spalte > 9 && $spalte < $cnt_max) {  ## Spalte Wochentage + aktiv
+      if ($spalte > 9 && $spalte <= $cnt_max) {  ## Spalte Wochentage + aktiv
         $id ++;
         if ($select_Value[$spalte-2] eq '0') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"0\" onclick=\"Checkbox(".$id.")\"></td>"; }
         if ($select_Value[$spalte-2] eq '1') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"1\" onclick=\"Checkbox(".$id.")\" checked></td>"; }
       }
 
-      if ($spalte == $cnt_max) {  ## Button Speichern
-        $id ++;
-        $html.= "<td align=\"center\" style=\"$style_code1 Padding-right:5px\"> <INPUT type=\"reset\" onclick=\"pushed_savebutton(".$id.")\" value=\"&#128190;\"/></td>"; # &#128427; &#128190;
-      }
-      if ($spalte > 1 && $spalte < $cnt_max) { Log3 $name, 5, "$name: attr2html | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
+      if ($spalte > 1 && $spalte <= $cnt_max) { Log3 $name, 5, "$name: FW_Detail | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
     }
     $html.= "</tr>";   ## Zeilenende
   }
-  $html.= "</table>";  ## Tabellenende
-
-  ## Tabellenende + Script
+  ## Button Speichern
+  $html.= "<tr><td  colspan=\"$cnt_max\" align=\"center\" style=\"$style_code1\"> <INPUT type=\"reset\" style=\"width:30%;\" onclick=\"pushed_savebutton('".substr($timer_nr_all, 0, -1)."')\" value=\"&#10004; $designations[6]\"/></td></tr>";
+  ## Tabellenende
+  $html.= "</table>";
+  ## DIV-Container Ende, danach Script
   $html.= '</div>
 
   <script>
@@ -669,21 +715,28 @@ sub Timer_FW_Detail {
 
   /* Aktion wenn Speichern */
   function pushed_savebutton(id) {
-    var allVals = [];
-    var timerNr = (id - 17) / 20;
-    allVals.push(timerNr);
-    var start = id - 17 + 1;
-    for(var i=start; i<id; i++) {
-      allVals.push(document.getElementById(i).value);
-    }
+    /* all id´s is passed as a string with comma separation */
+    const myIDs = id.split(",");
 
-    /* check Semicolon description */
-    var n = allVals[7].search(";");       /* return -1 if not found */
-    if (n != -1) {
-      FW_errmsg("ERROR: Semicolon not allowed in description!", 4000);
-      return;
+    FW_cmd(FW_root+ \'?XHR=1"'.$FW_CSRF.'"&cmd={FW_pushed_savebutton_preparation("'.$name.'","\'+myIDs.length+\'")}\');
+
+    for (var i2 = 0; i2 < myIDs.length; i2++) {
+      var allVals = [];
+      var timerNr = (myIDs[i2] - 16) / 20;
+      allVals.push(timerNr);
+      var start = myIDs[i2] - 16 + 1;
+      for(var i = start; i <= myIDs[i2]; i++) {
+        allVals.push(document.getElementById(i).value);
+      }
+
+      /* check Semicolon description */
+      var n = allVals[7].search(";");       /* return -1 if not found */
+      if (n != -1) {
+        FW_errmsg("ERROR: Semicolon not allowed in description!", 4000);
+        return;
+      }
+      FW_cmd(FW_root+ \'?XHR=1"'.$FW_CSRF.'"&cmd={FW_pushed_savebutton("'.$name.'","\'+allVals+\'","'.$FW_room_dupl.'")}\');
     }
-    FW_cmd(FW_root+ \'?XHR=1"'.$FW_CSRF.'"&cmd={FW_pushed_savebutton("'.$name.'","\'+allVals+\'","'.$FW_room_dupl.'")}\');
   }
 
   /* Popup DEF - Zusammenbau (PERL -> Rueckgabe -> Javascript) */
@@ -715,38 +768,59 @@ sub Timer_FW_Detail {
   return $html;
 }
 
+### to save counter ###
+sub FW_pushed_savebutton_preparation {
+  my $name = shift;
+  my $ID_cnt = shift;
+  my $hash = $defs{$name};
+
+  Log3 $name, 4, "$name: FW_pushed_savebutton_preparation | timercount is $ID_cnt & set changes,pushed_savebutton_count,refresh_locked,refresh to 0";
+  $hash->{helper}->{ID_cnt} = $ID_cnt;            # counter for number of timers
+  $hash->{helper}->{changes} = 0;                 # counter for changes on timer from user
+  $hash->{helper}->{pushed_savebutton_count} = 0; # counter of position pushed_savebutton function (event "Events" are not in the correct order)
+  $hash->{helper}->{refresh_locked} = 0;          # marker that no refresh -> popup, refresh closed popup
+  $hash->{helper}->{refresh} = 0;                 # marker that a page must refresh
+
+  return
+}
+
 ### for function from pushed_savebutton ###
 sub FW_pushed_savebutton {
   my $name = shift;
   my $hash = $defs{$name};
-  my $selected_buttons = shift;                           # neu,alle,alle,alle,alle,alle,00,Beispiel,on,0,0,0,0,0,0,0,0
+  my $selected_buttons = shift;                             # neu,alle,alle,alle,alle,alle,00,Beispiel,on,0,0,0,0,0,0,0,0
   my @selected_buttons = split(',' , $selected_buttons);
-  my $timer = $selected_buttons[0];
-  my $timers_count = 0;                                   # Timer by counting
-  my $timers_count2 = 0;                                  # need to check 1 + 1
-  my $timers_diff = 0;                                    # need to check 1 + 1
   my $FW_room_dupl = shift;
-  my $cnt_names = scalar(@selected_buttons);
-  my $devicefound = 0;                                    # to check device exists
-  my $reload = 0;
+  my $cnt_names = scalar(@selected_buttons);                # counter for name split from string -> $selected_buttons
   my $room = AttrVal($name, 'room', 'Unsorted');
-
-  my $timestamp = TimeNow();                              # Time now -> 2016-02-16 19:34:24
-  my @timestamp_values = split(/-|\s|:/xms , $timestamp); # Time now splitted
+  my $ReadingsVal;                                          # OldValue from Timer in Reading
+  my @timestamp_values = split( /-|\s|:/xms , TimeNow() );  # Time now splitted from -> 2016-02-16 19:34:24
   my ($sec, $min, $hour, $mday, $month, $year) = ($timestamp_values[5], $timestamp_values[4], $timestamp_values[3], $timestamp_values[2], $timestamp_values[1], $timestamp_values[0]);
 
-  Log3 $name, 5, "$name: FW_pushed_savebutton is running";
-
   if ($cnt_names > 17) { return 'ERROR: Comma not allowed in description!'; }
+  if (not defined $hash->{helper}->{pushed_savebutton_count} || not defined  $hash->{helper}->{ID_cnt}) {
+    Log3 $name, 2, "$name: FW_pushed_savebutton | cancellation, helper_pushed_savebutton_count ".$hash->{helper}->{pushed_savebutton_count};
+    Log3 $name, 2, "$name: FW_pushed_savebutton | cancellation, helper_ID_cnt ".$hash->{helper}->{ID_cnt};
+    return 'ERROR: Timer cancellation!'; 
+  }
 
-  foreach my $d (sort keys %{$hash->{READINGS}}) {
-    if ($d =~ /^Timer_(\d+)$/xms) {
-      $timers_count++;
-      $timers_count2 = $1 * 1;
-      if ($timers_count != $timers_count2 && $timers_diff == 0) {  # only for diff
-        $timer = $timers_count;
-        $timers_diff = 1;
-      }
+  Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal set: $selected_buttons";
+  $hash->{helper}->{pushed_savebutton_count}++;
+
+  $ReadingsVal = ReadingsVal($name, 'Timer_'.sprintf("%02s", $selected_buttons[0]), undef);
+  if ($ReadingsVal) {
+    Log3 $name, 5, "$name: FW_pushed_savebutton | ReadingsVal old: ".$selected_buttons[0].','.$ReadingsVal.'  cnt='.$hash->{helper}->{pushed_savebutton_count};
+
+    if ($hash->{helper}->{pushed_savebutton_count} == $hash->{helper}->{ID_cnt}) {
+      Log3 $name, 4, "$name: FW_pushed_savebutton | found END with ".$hash->{helper}->{changes}.' changes !!!';
+      $hash->{helper}->{refresh}++;   # now, browser can be updated to view current values
+    }
+
+    if ($selected_buttons eq ($selected_buttons[0].','.$ReadingsVal)) {
+      goto ENDPOINT; # no difference, needs no update
+    } else {
+      Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal ---> ".$selected_buttons[0]." must SAVE !!!";
+      $hash->{helper}->{changes}++;
     }
   }
 
@@ -764,29 +838,22 @@ sub FW_pushed_savebutton {
 
     if ($i == 7) {
       Log3 $name, 5, "$name: FW_pushed_savebutton | check: exists device or name -> ".$selected_buttons[$i];
-
-      foreach my $d (sort keys %defs) {
-        if (defined($defs{$d}{NAME}) && $defs{$d}{NAME} eq $selected_buttons[$i]) {
-          $devicefound++;
-          Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i].' is checked and exists';
-        }
+      if (IsDevice($selected_buttons[$i]) == 1) {
+        Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i].' is checked and exists';
       }
 
-      if ($devicefound == 0 && ($selected_buttons[$i+1] eq 'on' || $selected_buttons[$i+1] eq 'off')) {
+      if ( (IsDevice($selected_buttons[$i]) == 0) && ($selected_buttons[$i+1] eq 'on' || $selected_buttons[$i+1] eq 'off') ) {
         Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i].' is NOT exists';
         return 'ERROR: device not exists or no description! NO timer saved!';
       }
     }
   }
 
-  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
-  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month - 1, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
-
-  if ($selected_buttons[8] ne 'DEF' && ReadingsVal($name, 'Timer_'.sprintf("%02s", $timer).'_set', 0) ne '0') { readingsDelete($hash,'Timer_'.sprintf("%02s", $timer).'_set'); }
+  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
+  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
   my $newValue = substr($selected_buttons,(index($selected_buttons,',') + 1));
-  if ($oldValue ne $newValue && $FW_room_dupl) { $reload++; }
 
   my @Value_split = split(/,/xms , $oldValue);
   $oldValue = $Value_split[7];
@@ -817,7 +884,7 @@ sub FW_pushed_savebutton {
     $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' is saved and deleted from userattr';
     if (AttrVal($name, 'userattr', undef)) { Timer_delFromUserattr($hash,$userattrName); }
     addStructChange('modify', $name, "attr $name userattr");                     # note with question mark
-    $reload++;
+    $hash->{helper}->{changes}++;
   }
 
   readingsBulkUpdate($hash, 'state' , $state, 1);
@@ -825,14 +892,22 @@ sub FW_pushed_savebutton {
 
   Timer_PawList($hash);                                                          # list, Probably associated with
 
-  ## popup user message (jump to javascript) ##
-  if ($popup != 0) {
-    FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", '');
-    if ($reload != 0) { $reload = 0; } # reset, need to right running
+  if ($hash->{helper}->{changes} && $hash->{helper}->{changes} != 0) {
+    ## popup user message DEF (jump to javascript) ##
+    if ($popup != 0) {
+      Log3 $name, 4, "$name: FW_pushed_savebutton | popup user info for DEF";
+      FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", '');
+      $hash->{helper}->{refresh_locked}++; # reset, refresh closed popup -> need to right running
+    }
   }
 
+  ENDPOINT: # jump label for timers that have not been changed
+
   ## refresh site, need for userattr & right view checkboxes ##
-  FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "location.reload('true')", '') if ($reload != 0);
+  if ($hash->{helper}->{refresh} && $hash->{helper}->{refresh} != 0 && $hash->{helper}->{refresh_locked} == 0) {
+    Log3 $name, 4, "$name: FW_pushed_savebutton | refresh site NEED !!!";
+    FW_directNotify("FILTER=(room=$room)", "#FHEMWEB:WEB", "location.reload('true')", '');
+  }
 
   if ($selected_buttons[16] eq '1' && ReadingsVal($name, 'internalTimer', 'stop') eq 'stop') { Timer_Check($hash); }
 
@@ -892,7 +967,7 @@ sub Timer_delFromUserattr {
 sub Timer_Check {
   my ($hash) = @_;
   my $name = $hash->{NAME};
-  my @timestamp_values = split(/-|\s|:/xms , TimeNow());     # Time now (2016-02-16 19:34:24) splitted in array
+  my @timestamp_values = split(/-|\s|:/xms , TimeNow());  # Time now (2016-02-16 19:34:24) splitted in array
   my $dayOfWeek = strftime('%w', localtime);              # Wochentag
 
   if ($dayOfWeek eq '0') { $dayOfWeek = 7; }              # Sonntag nach hinten (Position 14 im Array)
@@ -903,7 +978,7 @@ sub Timer_Check {
   my $horizon = AttrVal($name,'Offset_Horizon','REAL');
   my @sunriseValues = split(':' , sunrise_abs($horizon)); # Sonnenaufgang (06:34:24) splitted in array
   my @sunsetValues = split(':' , sunset_abs($horizon));   # Sonnenuntergang (19:34:24) splitted in array
-  my $state;;
+  my $state;
 
   Log3 $name, 5, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
   Log3 $name, 4, "$name: Check is running, drift $microseconds microSeconds";
@@ -952,11 +1027,9 @@ sub Timer_Check {
     }
   }
 
-  readingsBeginUpdate($hash);
   if ($intervall == 60) {
    if ($timestamp_values[5] != 0 && $cnt_activ > 0) {
       $intervall = 60 - $timestamp_values[5];
-      readingsBulkUpdate($hash, 'internalTimer' , $intervall, 1);
       Log3 $name, 3, "$name: time difference too large! interval=$intervall, Sekunde=$timestamp_values[5]";
     }
   }
@@ -964,14 +1037,14 @@ sub Timer_Check {
   if ($intervall == 10) {
     if ($timestamp_values[5] % 10 != 0 && $cnt_activ > 0) {
       $intervall = $intervall - ($timestamp_values[5] % 10);
-      readingsBulkUpdate($hash, 'internalTimer' , $intervall, 1);
       Log3 $name, 3, "$name: time difference too large! interval=$intervall, Sekunde=$timestamp_values[5]";
     }
   }
   $intervall = ($intervall - $microseconds / 1000000); # Korrektur Zeit wegen Drift
   RemoveInternalTimer($hash);
-  if ($cnt_activ > 0) { InternalTimer(gettimeofday()+$intervall, 'Timer_Check', $hash, 0); }
 
+  readingsBeginUpdate($hash);
+  if ($cnt_activ > 0) { InternalTimer(gettimeofday()+$intervall, 'Timer_Check', $hash, 0); }
   if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop') { $state = 'no timer active'; }
   if (defined $state) { readingsBulkUpdate($hash, 'state' , "$state", 1); }
   if ($cnt_activ == 0 && ReadingsVal($name, 'internalTimer', 'stop') ne 'stop') { readingsBulkUpdate($hash, 'internalTimer' , 'stop'); }
@@ -986,8 +1059,6 @@ sub Timer_PawList {
   my ($hash) = @_;
   my $name = $hash->{NAME};
   my $associatedWith = '';
-
-  Log3 $name, 5, "$name: Timer_PawList is running";
 
   foreach my $d (keys %{$hash->{READINGS}}) {
     if ($d =~ /^Timer_(\d+)$/xms) {
@@ -1044,7 +1115,7 @@ sub Timer_PawList {
 <a name="Timer"></a>
 <h3>Timer Modul</h3>
 <ul>
-The timer module is a programmable timer.<br><br>
+The timer module is a programmable timer with a maximum of 99 actions.<br><br>
 In Frontend you can define new times and actions. The smallest possible definition of an action is a 10 second interval.<br>
 You can use the dropdown menu to make the settings for the time switch point. Only after clicking on the <code> Save </code> button will the setting be taken over.
 In the drop-down list, the numerical values ​​for year / month / day / hour / minute / second are available for selection.<br><br>
@@ -1070,19 +1141,21 @@ the timer uses the calculated sunset time at your location. <u><i>(For this calc
 
 <br><br>
 <u>Interval switching of the timer is only possible in the following variants:</u><br>
-<ul><li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
-   <li>hourly, define second + minute and set all other values ​​(hour, day, month, year) to <code>all</code></li>
-   <li>daily, define second + minute + hour and set all other values ​​(day, month, year) to <code>all</code></li>
-   <li>monthly, define second + minute + hour + day and set all other values ​​(month, year) to <code>all</code></li>
-   <li>annually, define second + minute + hour + day + month and set the value (year) to <code>all</code></li>
-   <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
-   <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li></ul>
+<ul>
+  <li>minute, define second and set all other values ​​(minute, hour, day, month, year) to <code>all</code></li>
+  <li>hourly, define second + minute and set all other values ​​(hour, day, month, year) to <code>all</code></li>
+  <li>daily, define second + minute + hour and set all other values ​​(day, month, year) to <code>all</code></li>
+  <li>monthly, define second + minute + hour + day and set all other values ​​(month, year) to <code>all</code></li>
+  <li>annually, define second + minute + hour + day + month and set the value (year) to <code>all</code></li>
+  <li>sunrise, define second & define minute + hour with <code>SR</code> and set all other values ​​(day, month, year) to <code>all</code></li>
+  <li>sunset, define second & define minute + hour with <code>SS</code> and set all other values ​​(day, month, year) to <code>all</code></li>
+</ul>
 <br>
 Any interval circuits can be defined in which in the associated timer attribute e.g. the following Perl code is inserted:<br>
 <code>{if ($min % 5 == 0) {fhem("set FS10_6_11 toggle");}}</code><br>
-This timer would run every 5 minutes if the timer is configured to run in a minute as described.<br>
+This timer would run every 5 minutes if the timer is configured to run in a minute as described.<br><br>
 The following variables for time and date are available:<br>
-<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $week, $hms, $hm, $md, $ymd, $we, $twe</code><br>
+<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $hms, $we, $today</code><br>
 This makes it possible, for example, to have a timer run every Sunday at 15:30:00.
 <br><br>
 
@@ -1100,6 +1173,14 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
     <li>addTimer: Adds a new timer</li><a name=""></a>
     <a name="deleteTimer"></a>
     <li>deleteTimer: Deletes the selected timer</li><a name=""></a>
+    <a name="offTimer"></a>
+    <li>offTimer: Individual timer is switched off.</li><a name=""></a>
+    <a name="offTimerAll"></a>
+    <li>offTimerAll: All timers are switched off.</li><a name=""></a>
+    <a name="onTimer"></a>
+    <li>onTimer: Individual timer is switched to active.</li><a name=""></a>
+    <a name="onTimerAll"></a>
+    <li>onTimerAll: All timers are activated.</li><a name=""></a>
     <a name="saveTimers"></a>
     <li>saveTimers: Saves the settings in file <code>Timers.txt</code> on directory <code>./FHEM/lib</code>.</li>
     <a name="sortTimer"></a>
@@ -1125,7 +1206,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
   <ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
   Shows or hides the sunrise and sunset with the local time above the table. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
-  Correction value to change the length of the text box for the device name / designation. (default 20)</li><a name=" "></a></ul><br>
+  Correction value to change the length of the text box for the device name / designation. (default 90)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Style">Table_Style</a><br>
   Turns on the defined table style. (on | off, default off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_View_in_room">Table_View_in_room</a><br>
@@ -1161,7 +1242,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
 <a name="Timer"></a>
 <h3>Timer Modul</h3>
 <ul>
-Das Timer Modul ist eine programmierbare Schaltuhr.<br><br>
+Das Timer Modul ist eine programmierbare Schaltuhr mit maximal 99 Aktionen.<br><br>
 Im Frontend k&ouml;nnen Sie neue Zeitpunkte und Aktionen definieren. Die kleinstm&ouml;gliche Definition einer Aktion ist ein 10 Sekunden Intervall.<br>
 Mittels der Dropdown Men&uuml;s k&ouml;nnen Sie die Einstellungen f&uuml;r den Zeitschaltpunkt vornehmen. Erst nach dem dr&uuml;cken auf den <code>Speichern</code> Knopf wird die Einstellung &uuml;bernommen.<br><br>
 In der DropDown-Liste stehen jeweils die Zahlenwerte f&uuml;r Jahr  / Monat / Tag / Stunde / Minute / Sekunde zur Auswahl.<br>
@@ -1187,19 +1268,21 @@ stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem 
 
 <br><br>
 <u>Eine Intervallschaltung des Timer ist nur m&ouml;glich in folgenden Varianten:</u><br>
-<ul><li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>st&uuml;ndlich, Sekunde + Minute definieren und alle anderen Werte (Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>t&auml;glich, Sekunde + Minute + Stunde definieren und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>monatlich, Sekunde + Minute + Stunde + Tag definieren und alle anderen Werte (Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>j&auml;hrlich, Sekunde + Minute + Stunde + Tag + Monat definieren und den Wert (Jahr) auf <code>alle</code> setzen</li>
-   <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
-   <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li></ul>
+<ul>
+  <li>min&uuml;tlich, Sekunde definieren und alle anderen Werte (Minute, Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>st&uuml;ndlich, Sekunde + Minute definieren und alle anderen Werte (Stunde, Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>t&auml;glich, Sekunde + Minute + Stunde definieren und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>monatlich, Sekunde + Minute + Stunde + Tag definieren und alle anderen Werte (Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>j&auml;hrlich, Sekunde + Minute + Stunde + Tag + Monat definieren und den Wert (Jahr) auf <code>alle</code> setzen</li>
+  <li>Sonnenaufgang, Sekunde definieren & Minute + Stunde definieren mit <code>SA</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+  <li>Sonnenuntergang, Sekunde definieren & Minute + Stunde definieren mit <code>SU</code> und alle anderen Werte (Tag, Monat, Jahr) auf <code>alle</code> setzen</li>
+</ul>
 <br>
 Beliebige Intervallschaltungen k&ouml;nnen definiert werden, in dem im zugeh&ouml;rigen Timer-Attribut z.B. folgender Perl-Code eingef&uuml;gt wird:<br>
 <code>{if ($min % 5 == 0) {fhem("set FS10_6_11 toggle");}}</code><br>
-Dieser Timer w&uuml;rde dann aller 5 Minuten ausgef&uuml;hrt, wenn der Timer wie beschrieben auf min&uuml;tliches Ausf&uuml;hren konfiguriert ist.<br>
+Dieser Timer w&uuml;rde dann aller 5 Minuten ausgef&uuml;hrt, wenn der Timer wie beschrieben auf min&uuml;tliches Ausf&uuml;hren konfiguriert ist.<br><br>
 Folgende Variablen f&uuml;r Zeit- und Datumsangaben stehen zur Verf&uuml;gung:<br>
-<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $week, $hms, $hm, $md, $ymd, $we, $twe</code><br>
+<code>$sec, $min, $hour, $mday, $month, $year, $wday, $yday, $isdst, $hms, $we, $today</code><br>
 Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30:00 Uhr etwas ausf&uuml;hren zu lassen.
 <br><br>
 
@@ -1217,6 +1300,14 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
     <li>addTimer: F&uuml;gt einen neuen Timer hinzu.</li><a name=""></a>
     <a name="deleteTimer"></a>
     <li>deleteTimer: L&ouml;scht den ausgew&auml;hlten Timer.</li><a name=""></a>
+    <a name="offTimer"></a>
+    <li>offTimer:  Einzelner Timer wird abgeschalten.</li><a name=""></a>
+    <a name="offTimerAll"></a>
+    <li>offTimerAll: Alle Timer werden abgeschalten.</li><a name=""></a>
+    <a name="onTimer"></a>
+    <li>onTimer: Einzelner Timer wird aktiv geschalten.</li><a name=""></a>
+    <a name="onTimerAll"></a>
+    <li>onTimerAll:  Alle Timer werden aktiv geschalten.</li><a name=""></a>
     <a name="saveTimers"></a>
     <li>saveTimers: Speichert die eingestellten Timer in der Datei <code>Timers.txt</code> im Verzeichnis <code>./FHEM/lib</code>. </li>
     <a name="sortTimer"></a>
@@ -1242,7 +1333,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
   <ul><li><a name="Table_Header_with_time">Table_Header_with_time</a><br>
   Blendet den Sonnenauf und Sonnenuntergang mit der lokalen Zeit &uuml;ber der Tabelle ein oder aus. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Size_TextBox">Table_Size_TextBox</a><br>
-  Korrekturwert um die L&auml;nge der Textbox f&uuml;r die Ger&auml;tenamen / Bezeichung zu ver&auml;ndern. (standard 20)</li><a name=" "></a></ul><br>
+  Korrekturwert um die L&auml;nge der Textbox f&uuml;r die Ger&auml;tenamen / Bezeichung zu ver&auml;ndern. (standard 90)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_Style">Table_Style</a><br>
   Schaltet den definierten Tabellen-Style ein. (on | off, standard off)</li><a name=" "></a></ul><br>
   <ul><li><a name="Table_View_in_room">Table_View_in_room</a><br>

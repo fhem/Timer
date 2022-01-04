@@ -1,14 +1,44 @@
-2021-01-19 - Merge branch 'pre-release'
+2022-01-04 - Merge branch 'pre-release' of https://github.com/fhem/Timer into master
+
+2022-01-04 - Update 88_Timer.pm
+
+- fix, incorrect monthly calculation on return
+2022-01-04 - Update 88_Timer.pm
+
+- fix, no Timer on 20211230 to 20211231 https://github.com/fhem/Timer/issues/10
+2021-10-21 - Update 88_Timer.pm
+
+- fix Loglevel
+2021-10-21 - Update 88_Timer.pm
+
+- added new cmd onTimer,offTimer, onTimerAll, offTimerAll
+- code optimized
+- fix, ERROR msg if more than 15 timers
+2021-10-14 - Update 88_Timer.pm
+
+- revised commandref
+2021-10-14 - Update CHANGED
+2021-10-14 - Update 88_Timer.pm
+
+- a save button for all changes
+- fronted input field variable in size
+- remove old code
+- revised commandref
+2021-01-20 - revised commandref
+
+- wrong variables named
+2021-01-19 - 88_Timer.pm - added versions internal
+
 2020-12-07 - Update 88_Timer.pm
 
-  * fix (Timer not running after shutdown)
+- fix (Timer not running after shutdown)
 2020-12-02 - Automaitc updated controls and CHANGED
 2020-09-28 - Update 88_Timer.pm
 
-* revised code for Perl::Critic
+- revised code for Perl::Critic
 2020-09-28 - Update 88_Timer.pm
 
-  * revised code for Perl::Critic
+- revised code for Perl::Critic
 2020-09-28 - Automaitc updated controls and CHANGED
 2020-03-25 - Update 88_Timer.pm
 
