@@ -1,3 +1,6 @@
+2022-01-04 - Update 88_Timer.pm
+
+- fix, no Timer on 20211230 to 20211231 https://github.com/fhem/Timer/issues/10
 2021-10-21 - Update 88_Timer.pm
 
 - fix Loglevel
