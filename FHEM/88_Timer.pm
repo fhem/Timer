@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 00000 2023-11-27 15:01:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 00000 2023-11-27 19:01:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -703,7 +703,7 @@ sub Timer_FW_Detail {
         $html.= "id=\"".$id."\"></td>";
       }
 
-      if ($spalte > 1 && $spalte <= $cnt_max) { Log3 $name, 5, "$name: FW_Detail | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
+      if ($select_Value[$spalte-2] && $spalte > 1 && $spalte <= $cnt_max) { Log3 $name, 5, "$name: FW_Detail | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
     }
     $html.= "</tr>";   ## Zeilenende
   }
@@ -800,10 +800,10 @@ sub FW_pushed_savebutton_preparation {
 sub FW_pushed_savebutton {
   my $name = shift;
   my $hash = $defs{$name};
-  my $selected_buttons = shift;                             # neu,alle,alle,alle,alle,alle,00,Beispiel,on,0,0,0,0,0,0,0,0
-  my @selected_buttons = split(',' , $selected_buttons);
+  my $rowsField = shift;                             # neu,alle,alle,alle,alle,alle,00,Beispiel,on,0,0,0,0,0,0,0,0
+  my @rowsField = split(',' , $rowsField);
   my $FW_room_dupl = shift;
-  my $cnt_names = scalar(@selected_buttons);                # counter for name split from string -> $selected_buttons
+  my $cnt_names = scalar(@rowsField);                # counter for name split from string -> $rowsField
   my $room = AttrVal($name, 'room', 'Unsorted');
   my $ReadingsVal;                                          # OldValue from Timer in Reading
   my @timestamp_values = split( /-|\s|:/xms , TimeNow() );  # Time now splitted from -> 2016-02-16 19:34:24
@@ -817,59 +817,58 @@ sub FW_pushed_savebutton {
     return 'ERROR: Timer cancellation!'; 
   }
 
-  Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal set: $selected_buttons";
+  Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal set: $rowsField";
   $hash->{helper}->{pushed_savebutton_count}++;
 
-  $ReadingsVal = ReadingsVal($name, 'Timer_'.sprintf("%02s", $selected_buttons[0]), undef);
+  $ReadingsVal = ReadingsVal($name, 'Timer_'.sprintf("%02s", $rowsField[0]), undef);
   if ($ReadingsVal) {
-    Log3 $name, 5, "$name: FW_pushed_savebutton | ReadingsVal old: ".$selected_buttons[0].','.$ReadingsVal.'  cnt='.$hash->{helper}->{pushed_savebutton_count};
+    Log3 $name, 5, "$name: FW_pushed_savebutton | ReadingsVal old: ".$rowsField[0].','.$ReadingsVal.'  cnt='.$hash->{helper}->{pushed_savebutton_count};
 
     if ($hash->{helper}->{pushed_savebutton_count} == $hash->{helper}->{ID_cnt}) {
       Log3 $name, 4, "$name: FW_pushed_savebutton | found END with ".$hash->{helper}->{changes}.' changes !!!';
       $hash->{helper}->{refresh}++;   # now, browser can be updated to view current values
     }
 
-    if ($selected_buttons eq ($selected_buttons[0].','.$ReadingsVal)) {
+    if ($rowsField eq ($rowsField[0].','.$ReadingsVal)) {
       goto ENDPOINT; # no difference, needs no update
     } else {
-      Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal ---> ".$selected_buttons[0]." must SAVE !!!";
+      Log3 $name, 4, "$name: FW_pushed_savebutton | ReadingsVal ---> ".$rowsField[0]." must SAVE !!!";
       $hash->{helper}->{changes}++;
     }
   }
 
   for(my $i = 0;$i < $cnt_names;$i++) {
-    Log3 $name, 5, "$name: FW_pushed_savebutton | ".$names[$i].' -> '.$selected_buttons[$i];
+    Log3 $name, 5, "$name: FW_pushed_savebutton | ".$names[$i].' -> '.$rowsField[$i];
     ## to set time to check input ## SA -> pos 4 array | SU -> pos 5 array ##
-    if ($i >= 1 && $i <=6 && ( $selected_buttons[$i] ne $description_all && $selected_buttons[$i] ne $designations[4] && $selected_buttons[$i] ne $designations[5] )) {
-      if ($i == 6) { $sec = $selected_buttons[$i]; }
-      if ($i == 5) { $min = $selected_buttons[$i]; }
-      if ($i == 4) { $hour = $selected_buttons[$i]; }
-      if ($i == 3) { $mday = $selected_buttons[$i]; }
-      if ($i == 2) { $month = $selected_buttons[$i]-1; }
-      if ($i == 1) { $year = $selected_buttons[$i]-1900; }
+    if ($i >= 1 && $i <=6 && ( $rowsField[$i] ne $description_all && $rowsField[$i] ne $designations[4] && $rowsField[$i] ne $designations[5] )) {
+      if ($i == 6) { $sec = $rowsField[$i]; }
+      if ($i == 5) { $min = $rowsField[$i]; }
+      if ($i == 4) { $hour = $rowsField[$i]; }
+      if ($i == 3) { $mday = $rowsField[$i]; }
+      if ($i == 2) { $month = $rowsField[$i]-1; }
+      if ($i == 1) { $year = $rowsField[$i]-1900; }
     }
 
     if ($i == 7) {
-      Log3 $name, 5, "$name: FW_pushed_savebutton | check: exists device or name -> ".$selected_buttons[$i];
-      if (IsDevice($selected_buttons[$i]) == 1) {
-        Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i].' is checked and exists';
+      Log3 $name, 5, "$name: FW_pushed_savebutton | check: exists device or name -> ".$rowsField[$i];
+      if (IsDevice($rowsField[$i]) == 1) {
+        Log3 $name, 5, "$name: FW_pushed_savebutton | ".$rowsField[$i].' is checked and exists';
       }
 
-      if ( (IsDevice($selected_buttons[$i]) == 0) && ($selected_buttons[$i+1] eq 'on' || $selected_buttons[$i+1] eq 'off') ) {
-        Log3 $name, 5, "$name: FW_pushed_savebutton | ".$selected_buttons[$i].' is NOT exists';
+      if ( (IsDevice($rowsField[$i]) == 0) && ($rowsField[$i+1] eq 'on' || $rowsField[$i+1] eq 'off') ) {
+        Log3 $name, 5, "$name: FW_pushed_savebutton | ".$rowsField[$i].' is NOT exists';
         return 'ERROR: device not exists or no description! NO timer saved!';
       }
     }
-    if ($i == 17) {$selected_buttons[17] *= 1;}
-    if ($i > 0)   {$readingStr .= $selected_buttons[$i] . ','}
+    if ($i == 17) {$rowsField[17] *= 1;}
+    if ($i > 0) {$readingStr .= $rowsField[$i] . ','}
   }
   chop($readingStr);
-  
+
   if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
   if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
-  my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
-
+  my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $rowsField[0]) ,0);
   my @Value_split = split(/,/xms , $oldValue);
   $oldValue = $Value_split[7];
 
@@ -877,26 +876,26 @@ sub FW_pushed_savebutton {
   my $newValue = $Value_split[7];
 
   if ($Value_split[6] eq '' && $Value_split[7] eq 'DEF') {                        # standard name, if no name set in DEF option
-    my $replace = 'Timer_'.sprintf("%02s", $selected_buttons[0]);
+    my $replace = 'Timer_'.sprintf("%02s", $rowsField[0]);
     $readingStr =~ s/,,/,$replace,/gxms;
   }
  
   readingsBeginUpdate($hash);
-  readingsBulkUpdate($hash, 'Timer_'.sprintf("%02s", $selected_buttons[0]) , $readingStr);
+  readingsBulkUpdate($hash, 'Timer_'.sprintf("%02s", $rowsField[0]) , $readingStr);
 
-  my $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' saved';
-  my $userattrName = 'Timer_'.sprintf("%02s", $selected_buttons[0]).'_set:textField-long';
+  my $state = 'Timer_'.sprintf("%02s", $rowsField[0]).' saved';
+  my $userattrName = 'Timer_'.sprintf("%02s", $rowsField[0]).'_set:textField-long';
   my $popup = 0;
 
   if (($oldValue eq 'on' || $oldValue eq 'off') && $newValue eq 'DEF') {
-    $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' is saved and revised userattr. Please set DEF in attribute Timer_'.sprintf("%02s", $selected_buttons[0]).'_set !';
+    $state = 'Timer_'.sprintf("%02s", $rowsField[0]).' is saved and revised userattr. Please set DEF in attribute Timer_'.sprintf("%02s", $rowsField[0]).'_set !';
     addToDevAttrList($name,$userattrName);
     addStructChange('modify', $name, "attr $name userattr");                     # note with question mark
     $popup++;
   }
 
   if ($oldValue eq 'DEF' && ($newValue eq 'on' || $newValue eq 'off')) {
-    $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' is saved and deleted from userattr';
+    $state = 'Timer_'.sprintf("%02s", $rowsField[0]).' is saved and deleted from userattr';
     if (AttrVal($name, 'userattr', undef)) { Timer_delFromUserattr($hash,$userattrName); }
     addStructChange('modify', $name, "attr $name userattr");                     # note with question mark
     $hash->{helper}->{changes}++;
@@ -911,7 +910,7 @@ sub FW_pushed_savebutton {
     ## popup user message DEF (jump to javascript) ##
     if ($popup != 0) {
       Log3 $name, 4, "$name: FW_pushed_savebutton | popup user info for DEF";
-      FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$selected_buttons[0].")", '');
+      FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "show_popup(".$rowsField[0].")", '');
       $hash->{helper}->{refresh_locked}++; # reset, refresh closed popup -> need to right running
     }
   }
@@ -924,7 +923,7 @@ sub FW_pushed_savebutton {
     FW_directNotify("FILTER=(room=$room)", "#FHEMWEB:WEB", "location.reload('true')", '');
   }
 
-  if ($selected_buttons[16] eq '1' && ReadingsVal($name, 'internalTimer', 'stop') eq 'stop') { Timer_Check($hash); }
+  if ($rowsField[16] eq '1' && ReadingsVal($name, 'internalTimer', 'stop') eq 'stop') { Timer_Check($hash); }
 
   return;
 }
@@ -1006,9 +1005,8 @@ sub Timer_Check {
       #0     1     2     3      4      5       6                  7      8  9  10 11 12 13 14 15    16
 
       my $set = 1;
-      my $CalTime;
 
-      if ($values[15] == 1) {                                 # Timer aktiv
+      if ($values[15] == 1) {                                 # input checkbox "aktiv"
         $cnt_activ++;
 
         if ($values[3] eq $designations[4]) { $values[3] = $sunriseValues[0]; } # Stunde | Sonnenaufgang -> pos 0 array
@@ -1016,22 +1014,22 @@ sub Timer_Check {
         if ($values[3] eq $designations[5]) { $values[3] = $sunsetValues[0]; }  # Stunde | Sonnenuntergang -> pos 0 array
         if ($values[4] eq $designations[5]) { $values[4] = $sunsetValues[1]; }  # Minute | Sonnenuntergang -> pos 1 array
 
-        if ($values[16] != 0) {
+        if ($values[16] && $values[16] != 0) {                # input numbre "Offset"
           Log3 $name, 5, "$name: $d  must calculated, hh:$values[3] mm:$values[4] | offset: $values[16]";
-          my $m1 = $values[4] + $values[16];       # Min + Offset
+          my $calcTime = $values[4] + $values[16];  # Min + Offset
 
-          if ($m1 > 59) {
-            #Log3 $name, 3, "$name: $d  m1 >59 =".$m1;
+          if ($calcTime > 59) {
+            #Log3 $name, 5, "$name: $d  calcTime >59 =".$calcTime;
             $values[3] += 1;
-            $m1 -= 60;
-          } elsif($m1 < 0) {
-            #Log3 $name, 3, "$name: $d  m1 <0 =".$m1;
+            $calcTime -= 60;
+          } elsif($calcTime < 0) {
+            #Log3 $name, 5, "$name: $d  calcTime <0 =".$calcTime;
             $values[3] -= 1;
-            $m1 = (60 + $m1);
+            $calcTime = (60 + $calcTime);
           } else {
-            #Log3 $name, 3, "$name: $d  m1 =".$m1;
+            #Log3 $name, 5, "$name: $d  calcTime =".$calcTime;
           }
-          $values[4] = $m1;
+          $values[4] = $calcTime;
           Log3 $name, 5, "$name: $d  new  calculated, hh:$values[3] mm:$values[4]";
         }
 
