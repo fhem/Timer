@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 00000 2022-01-04 15:01:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 00000 2023-11-27 15:01:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
-our $VERSION = '2022-04-01';
+our $VERSION = '2023-11-27';
 
 my @action = qw(on off DEF);
 my @names;
@@ -34,11 +34,11 @@ my $language = uc(AttrVal('global', 'language', 'EN'));
 if ($language eq 'DE') {
   @designations = ('Sonnenaufgang','Sonnenuntergang','lokale Zeit','Uhr','SA','SU','Einstellungen speichern');
   $description_all = 'alle';    # using in RegEx
-  @names = ('Nr.','Jahr','Monat','Tag','Stunde','Minute','Sekunde','Ger&auml;t oder Bezeichnung','Aktion','Mo','Di','Mi','Do','Fr','Sa','So','aktiv');
+  @names = ('Nr.','Jahr','Monat','Tag','Stunde','Minute','Sekunde','Ger&auml;t oder Bezeichnung','Aktion','Mo','Di','Mi','Do','Fr','Sa','So','aktiv','Offset');
 } else {
   @designations = ('Sunrise','Sunset','local time','','SR','SS','settings save');
   $description_all = 'all';     # using in RegEx
-  @names = ('No.','Year','Month','Day','Hour','Minute','Second','Device or label','Action','Mon','Tue','Wed','Thu','Fri','Sat','Sun','active');
+  @names = ('No.','Year','Month','Day','Hour','Minute','Second','Device or label','Action','Mon','Tue','Wed','Thu','Fri','Sat','Sun','active','offset');
 }
 
 ##########################
@@ -598,13 +598,13 @@ sub Timer_FW_Detail {
   $html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq 'on');
   $html.= "<div id=\"table\"><table class=\"block wide\" style=\"$style_code2\">";
 
-  #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv
-  #         ---------------------------------------------------------------------------------------
-  #               2019  09    03    18     15     00      Player  on     0  0  0  0  0  0  0  0
-  # Spalte: 0     1     2     3     4      5      6       7       8      9  10 11 12 13 14 15 16
-  #         ---------------------------------------------------------------------------------------
-  # T 1 id: 20    21    22    23    24     25     26      27      28     29 30 31 32 33 34 35 36   ($id = timer_nr * 20 + $Spalte)
-  # T 2 id: 40    41    42    43    44     45     46      47      48     49 50 51 52 53 54 55 56   ($id = timer_nr * 20 + $Spalte)
+  #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv Offset
+  #         ----------------------------------------------------------------------------------------------
+  #               2019  09    03    18     15     00      Player  on     0  0  0  0  0  0  0  0     0
+  # Spalte: 0     1     2     3     4      5      6       7       8      9  10 11 12 13 14 15 16    17
+  #         ----------------------------------------------------------------------------------------------
+  # T 1 id: 20    21    22    23    24     25     26      27      28     29 30 31 32 33 34 35 36    37  ($id = timer_nr * 20 + $Spalte)
+  # T 2 id: 40    41    42    43    44     45     46      47      48     49 50 51 52 53 54 55 56    57  ($id = timer_nr * 20 + $Spalte)
   # Button SPEICHERN
 
   ## Ueberschrift
@@ -628,7 +628,7 @@ sub Timer_FW_Detail {
   for(my $zeile = 0; $zeile < $Timers_Count; $zeile++) {
     $html.= sprintf("<tr class=\"%s\">", ($zeile & 1)?"odd":"even");
     my $id = $timer_nr[$zeile] * 20; # id 20, 40, 60 ...
-    $timer_nr_all.= ( $timer_nr[$zeile]*20 + 16 ).',';
+    $timer_nr_all.= ( $timer_nr[$zeile]*20 + 17 ).',';
     #Log3 $name, 3, "$name: FW_Detail | TimerNr $timer_nr[$zeile], Zeile $zeile, id $id, Start";
     my @select_Value = split(',', ReadingsVal($name, 'Timer_'.$timer_nr[$zeile], "$description_all,$description_all,$description_all,$description_all,$description_all,00,Lampe,on,0,0,0,0,0,0,0,0,,"));
     for(my $spalte = 1; $spalte <= $cnt_max; $spalte++) {
@@ -685,10 +685,22 @@ sub Timer_FW_Detail {
         $html.="</select></td>";
       }
 
-      if ($spalte > 9 && $spalte <= $cnt_max) {  ## Spalte Wochentage + aktiv
+      if ($spalte > 9 && $spalte < $cnt_max) {  ## Spalte Wochentage + aktiv
         $id ++;
         if ($select_Value[$spalte-2] eq '0') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"0\" onclick=\"Checkbox(".$id.")\"></td>"; }
         if ($select_Value[$spalte-2] eq '1') { $html.= "<td align=\"center\" style=\"$style_code1\"><input type=\"checkbox\" name=\"days\" id=\"".$id."\" value=\"1\" onclick=\"Checkbox(".$id.")\" checked></td>"; }
+      }
+
+      if($spalte == 17){  ## Offset (NUR bei SA & SU)
+        $id ++;
+        $html.= "<td align=\"center\"><input align=\"center\" ";
+
+        if($select_Value[3] eq 'SA' || $select_Value[3] eq 'SU' || $select_Value[4] eq 'SA' || $select_Value[4] eq 'SU'){
+          $html.= "style='width:45px' type=\"number\" min=\"-59\" max=\"59\" onKeyUp=\"if(this.value>59){this.value='59';}else if(this.value<-59){this.value='-59';}\" value=\"".$select_Value[16]."\" ";
+        } else {
+          $html.= "style='width:45px; color:LightGray' type=\"number\" value=\"0\" readonly ";
+        }
+        $html.= "id=\"".$id."\"></td>";
       }
 
       if ($spalte > 1 && $spalte <= $cnt_max) { Log3 $name, 5, "$name: FW_Detail | Timer=".$timer_nr[$zeile]." ".$names[$spalte-1].'='.$select_Value[$spalte-2]." cnt_max=$cnt_max ($spalte)"; }
@@ -722,9 +734,9 @@ sub Timer_FW_Detail {
 
     for (var i2 = 0; i2 < myIDs.length; i2++) {
       var allVals = [];
-      var timerNr = (myIDs[i2] - 16) / 20;
+      var timerNr = (myIDs[i2] - 17) / 20;
       allVals.push(timerNr);
-      var start = myIDs[i2] - 16 + 1;
+      var start = myIDs[i2] - 17 + 1;
       for(var i = start; i <= myIDs[i2]; i++) {
         allVals.push(document.getElementById(i).value);
       }
@@ -796,8 +808,9 @@ sub FW_pushed_savebutton {
   my $ReadingsVal;                                          # OldValue from Timer in Reading
   my @timestamp_values = split( /-|\s|:/xms , TimeNow() );  # Time now splitted from -> 2016-02-16 19:34:24
   my ($sec, $min, $hour, $mday, $month, $year) = ($timestamp_values[5], $timestamp_values[4], $timestamp_values[3], $timestamp_values[2], $timestamp_values[1], $timestamp_values[0]);
+  my $readingStr = "";
 
-  if ($cnt_names > 17) { return 'ERROR: Comma not allowed in description!'; }
+  if ($cnt_names > 18) { return 'ERROR: Comma not allowed in description!'; }
   if (not defined $hash->{helper}->{pushed_savebutton_count} || not defined  $hash->{helper}->{ID_cnt}) {
     Log3 $name, 2, "$name: FW_pushed_savebutton | cancellation, helper_pushed_savebutton_count ".$hash->{helper}->{pushed_savebutton_count};
     Log3 $name, 2, "$name: FW_pushed_savebutton | cancellation, helper_ID_cnt ".$hash->{helper}->{ID_cnt};
@@ -847,27 +860,29 @@ sub FW_pushed_savebutton {
         return 'ERROR: device not exists or no description! NO timer saved!';
       }
     }
+    if ($i == 17) {$selected_buttons[17] *= 1;}
+    if ($i > 0)   {$readingStr .= $selected_buttons[$i] . ','}
   }
-
+  chop($readingStr);
+  
   if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
   if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $selected_buttons[0]) ,0);
-  my $newValue = substr($selected_buttons,(index($selected_buttons,',') + 1));
 
   my @Value_split = split(/,/xms , $oldValue);
   $oldValue = $Value_split[7];
 
-  @Value_split = split(/,/xms , $newValue);
-  $newValue = $Value_split[7];
+  @Value_split = split(/,/xms , $readingStr);
+  my $newValue = $Value_split[7];
 
   if ($Value_split[6] eq '' && $Value_split[7] eq 'DEF') {                        # standard name, if no name set in DEF option
     my $replace = 'Timer_'.sprintf("%02s", $selected_buttons[0]);
-    $selected_buttons =~ s/,,/,$replace,/gxms;
+    $readingStr =~ s/,,/,$replace,/gxms;
   }
-
+ 
   readingsBeginUpdate($hash);
-  readingsBulkUpdate($hash, 'Timer_'.sprintf("%02s", $selected_buttons[0]) , substr($selected_buttons,(index($selected_buttons,',') + 1)));
+  readingsBulkUpdate($hash, 'Timer_'.sprintf("%02s", $selected_buttons[0]) , $readingStr);
 
   my $state = 'Timer_'.sprintf("%02s", $selected_buttons[0]).' saved';
   my $userattrName = 'Timer_'.sprintf("%02s", $selected_buttons[0]).'_set:textField-long';
@@ -986,16 +1001,39 @@ sub Timer_Check {
   foreach my $d (keys %{$hash->{READINGS}}) {
     if ($d =~ /^Timer_\d+$/xms) {
       my @values = split(',' , $hash->{READINGS}->{$d}->{VAL});
-      #Jahr  Monat Tag   Stunde Minute Sekunde Gerät              Aktion Mo Di Mi Do Fr Sa So aktiv
-      #alle, alle, alle, alle,  alle,  00,     BlueRay_Player_LG, on,    0, 0, 0, 0, 0, 0, 0, 0
-      #0     1     2     3      4      5       6                  7      8  9  10 11 12 13 14 15
+      #Jahr  Monat Tag   Stunde Minute Sekunde Gerät              Aktion Mo Di Mi Do Fr Sa So aktiv Offset
+      #alle, alle, alle, alle,  alle,  00,     BlueRay_Player_LG, on,    0, 0, 0, 0, 0, 0, 0, 0,    0
+      #0     1     2     3      4      5       6                  7      8  9  10 11 12 13 14 15    16
+
       my $set = 1;
+      my $CalTime;
+
       if ($values[15] == 1) {                                 # Timer aktiv
         $cnt_activ++;
-        if ($values[3] eq $designations[4]) { $values[3] = $sunriseValues[0]; } # Stunde | Sonnenaufgang -> pos 4 array
-        if ($values[4] eq $designations[4]) { $values[4] = $sunriseValues[1]; } # Minute | Sonnenaufgang -> pos 4 array
-        if ($values[3] eq $designations[5]) { $values[3] = $sunsetValues[0]; }  # Stunde | Sonnenuntergang -> pos 5 array
-        if ($values[4] eq $designations[5]) { $values[4] = $sunsetValues[1]; }  # Stunde | Sonnenuntergang -> pos 5 array
+
+        if ($values[3] eq $designations[4]) { $values[3] = $sunriseValues[0]; } # Stunde | Sonnenaufgang -> pos 0 array
+        if ($values[4] eq $designations[4]) { $values[4] = $sunriseValues[1]; } # Minute | Sonnenaufgang -> pos 1 array | mit Offset
+        if ($values[3] eq $designations[5]) { $values[3] = $sunsetValues[0]; }  # Stunde | Sonnenuntergang -> pos 0 array
+        if ($values[4] eq $designations[5]) { $values[4] = $sunsetValues[1]; }  # Minute | Sonnenuntergang -> pos 1 array
+
+        if ($values[16] != 0) {
+          Log3 $name, 5, "$name: $d  must calculated, hh:$values[3] mm:$values[4] | offset: $values[16]";
+          my $m1 = $values[4] + $values[16];       # Min + Offset
+
+          if ($m1 > 59) {
+            #Log3 $name, 3, "$name: $d  m1 >59 =".$m1;
+            $values[3] += 1;
+            $m1 -= 60;
+          } elsif($m1 < 0) {
+            #Log3 $name, 3, "$name: $d  m1 <0 =".$m1;
+            $values[3] -= 1;
+            $m1 = (60 + $m1);
+          } else {
+            #Log3 $name, 3, "$name: $d  m1 =".$m1;
+          }
+          $values[4] = $m1;
+          Log3 $name, 5, "$name: $d  new  calculated, hh:$values[3] mm:$values[4]";
+        }
 
         for (my $i = 0;$i < 5;$i++) {                                           # Jahr, Monat, Tag, Stunde, Minute
           if ($values[$i] ne $description_all && $values[$i] ne $timestamp_values[$i]) { $set = 0; }
@@ -1232,6 +1270,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
 
 <b><i><u>Hints:</u></i></b><br>
 <ul><li>Entries in the system logfile like: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> say that the timer has recalculated the time.</li></ul>
+<ul><li>The offset function can only be activated at sunrise (SR) and sunset (SS).</li></ul>
 
 </ul>
 =end html
@@ -1359,7 +1398,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
 
 <b><i><u>Hinweise:</u></i></b><br>
 <ul><li>Eintr&auml;ge im Systemlogfile wie: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> sagen aus, das der Timer die Zeit neu berechnet hat.</li></ul>
-
+<ul><li>Die Funktion Offset ist nur bei Sonnenaufgang (SA) und Sonnenuntergang (SU) aktivierbar.</li></ul>
 </ul>
 =end html_DE
 
