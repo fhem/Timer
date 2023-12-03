@@ -1,3 +1,7 @@
+2023-12-03 - Update 88_Timer.pm
+
+- fix offset
+- mark warnings
 2023-11-27 - Update 88_Timer.pm
 
 - fix warning & rename varible
