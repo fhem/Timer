@@ -596,7 +596,7 @@ sub Timer_FW_Detail {
   if ($Table_Border eq 'on') { $style_code2 = "border:2px solid #00FF00;"; }
 
   $html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq 'on');
-  $html.= "<div id=\"table\"><table id=\"test\" class=\"block wide\" style=\"$style_code2\">";
+  $html.= "<div id=\"table\"><table id=\"tab\" class=\"block wide\" style=\"$style_code2\">";
 
   #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv Offset
   #         ----------------------------------------------------------------------------------------------
