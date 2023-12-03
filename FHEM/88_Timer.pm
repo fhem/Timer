@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 00000 2023-11-27 19:01:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 00000 2023-12-03 15:01:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
-our $VERSION = '2023-11-27';
+our $VERSION = '2023-12-03';
 
 my @action = qw(on off DEF);
 my @names;
@@ -596,7 +596,7 @@ sub Timer_FW_Detail {
   if ($Table_Border eq 'on') { $style_code2 = "border:2px solid #00FF00;"; }
 
   $html.= "<div style=\"text-align: center; font-size:medium; padding: 0px 0px 6px 0px;\">$designations[0]: ".sunrise_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[1]: ".sunset_abs($horizon)." $designations[3]&nbsp;&nbsp;|&nbsp;&nbsp;$designations[2]: ".TimeNow()." $designations[3]</div>" if($Table_Header_with_time eq 'on');
-  $html.= "<div id=\"table\"><table class=\"block wide\" style=\"$style_code2\">";
+  $html.= "<div id=\"table\"><table id=\"test\" class=\"block wide\" style=\"$style_code2\">";
 
   #         Timer Jahr  Monat Tag   Stunde Minute Sekunde Gerät   Aktion Mo Di Mi Do Fr Sa So aktiv Offset
   #         ----------------------------------------------------------------------------------------------
@@ -652,7 +652,7 @@ sub Timer_FW_Detail {
         $id++;
 
         # Log3 $name, 3, "$name: FW_Detail | Zeile $zeile, id $id, select";
-        $html.= "<td align=\"center\" style=\"$style_code1\"><select id=\"".$id."\">";  # id need for java script
+        $html.= "<td align=\"center\" style=\"$style_code1\"><select id=\"".$id."\" onchange=\"validColumn(".$id.")\">";  # id need for java script
         if ($spalte <= 6) { $html.= "<option>$description_all</option>"; }              # Jahr, Monat, Tag, Stunde, Minute
         if ($spalte == 5 || $spalte == 6) {                                             # Stunde, Minute
           $selected = $select_Value[$spalte-2] eq $designations[4] ? "selected=\"selected\"" : '';
@@ -696,9 +696,10 @@ sub Timer_FW_Detail {
         $html.= "<td align=\"center\"><input align=\"center\" ";
 
         if($select_Value[3] eq 'SA' || $select_Value[3] eq 'SU' || $select_Value[4] eq 'SA' || $select_Value[4] eq 'SU'){
-          $html.= "style='width:45px' type=\"number\" min=\"-59\" max=\"59\" onKeyUp=\"if(this.value>59){this.value='59';}else if(this.value<-59){this.value='-59';}\" value=\"".$select_Value[16]."\" ";
+          if (not $select_Value[16]) { $select_Value[16] = 0; }
+          $html.= "style='width:60px' type=\"number\" min=\"-1440\" max=\"1440\" onkeypress=\"return isValidInputKey(event);\" value=\"".$select_Value[16]."\" ";
         } else {
-          $html.= "style='width:45px; color:LightGray' type=\"number\" value=\"0\" readonly ";
+          $html.= "style='width:60px; color:Red' type=\"hidden\" value=\"0\"";
         }
         $html.= "id=\"".$id."\"></td>";
       }
@@ -722,6 +723,45 @@ sub Timer_FW_Detail {
       checkBox.value = 1;
     } else {
       checkBox.value = 0;
+    }
+  }
+
+  /* input numbre - Check Werte | nur 0-9 . - */
+  function isValidInputKey(evt){
+    var charCode = (evt.which) ? evt.which : evt.keyCode
+    return !(charCode > 31 && (charCode < 45 || charCode == 47 || charCode > 57) );
+  }
+
+  /* Test eingestellter Wert fuer Ein/Ausblendung Eingabefeld*/
+  function validColumn(id) {
+    var column_hh = (id - 4) / 20;
+    var column_mm = (id - 5) / 20;
+
+    const testValues = ["SA", "SU", "SR", "SS"];
+    let column_hide = false;
+
+    if(Number.isInteger(column_hh) || Number.isInteger(column_mm)) {
+      console.log("plausible column found with id " + id +" | selected: " + document.getElementById(id).value);
+
+      for (let i=0; i<testValues.length; i++) {
+        if(testValues[i] == document.getElementById(id).value || testValues[i] == document.getElementById(id+1).value) {
+          column_hide = true;
+        }
+      }
+
+      if(column_hide){
+        if(Number.isInteger(column_hh)) {
+          document.getElementById(column_hh * 20 + 17).type = \'number\';
+        } else if (Number.isInteger(column_mm)) {
+          document.getElementById(column_mm * 20 + 17).type = \'number\';
+        }
+      } else {
+        if(Number.isInteger(column_hh)) {
+          document.getElementById(column_hh * 20 + 17).type = \'hidden\';
+        } else if (Number.isInteger(column_mm)) {
+          document.getElementById(column_mm * 20 + 17).type = \'hidden\';
+        }
+      }
     }
   }
 
@@ -824,7 +864,7 @@ sub FW_pushed_savebutton {
   if ($ReadingsVal) {
     Log3 $name, 5, "$name: FW_pushed_savebutton | ReadingsVal old: ".$rowsField[0].','.$ReadingsVal.'  cnt='.$hash->{helper}->{pushed_savebutton_count};
 
-    if ($hash->{helper}->{pushed_savebutton_count} == $hash->{helper}->{ID_cnt}) {
+    if ( $hash->{helper}->{pushed_savebutton_count} && $hash->{helper}->{ID_cnt} && $hash->{helper}->{pushed_savebutton_count} == $hash->{helper}->{ID_cnt} ) {
       Log3 $name, 4, "$name: FW_pushed_savebutton | found END with ".$hash->{helper}->{changes}.' changes !!!';
       $hash->{helper}->{refresh}++;   # now, browser can be updated to view current values
     }
@@ -860,13 +900,20 @@ sub FW_pushed_savebutton {
         return 'ERROR: device not exists or no description! NO timer saved!';
       }
     }
-    if ($i == 17) {$rowsField[17] *= 1;}
+    if ($i == 17) {
+      #$rowsField[17] =~ s/-$//gxms;      # nur bei input typ=text
+      #$rowsField[17] =~ s/^-+/-/gxms;    # nur bei input typ=text
+      $rowsField[17] *= 1;
+      $rowsField[17] = sprintf "%.0f", $rowsField[17];
+      Log3 $name, 4, "$name: FW_pushed_savebutton | offset= ".$rowsField[17];
+    }
     if ($i > 0) {$readingStr .= $rowsField[$i] . ','}
   }
   chop($readingStr);
 
-  if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
-  if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
+  # ToDo -  Warnings stacktrace
+  #if ((time() - fhemTimeLocal($sec, $min, $hour, $mday, $month, $year)) > 0) { return 'ERROR: The time is in the past. Please set a time in the future!'; }
+  #if ((fhemTimeLocal($sec, $min, $hour, $mday, $month, $year) - time()) < 60) { return 'ERROR: The next switching point is too small!'; }
 
   my $oldValue = ReadingsVal($name,'Timer_'.sprintf("%02s", $rowsField[0]) ,0);
   my @Value_split = split(/,/xms , $oldValue);
@@ -935,7 +982,7 @@ sub Timer_Popup {
   $selected_button = sprintf("%02s", $selected_button);
   my $ret = '';
 
-  Log3 $name, 5, "$name: Timer_Popup is running";
+  Log3 $name, 5, "$name: Popup is running";
 
   if ($language eq 'DE') {
     $ret.= "<p style=\"text-decoration-line: underline;\">Hinweis:</p>";
@@ -971,7 +1018,7 @@ sub Timer_delFromUserattr {
 
   if (AttrVal($name, 'userattr', undef) =~ /$deleteTimer/xms) {
     delFromDevAttrList($name, $deleteTimer);
-    Log3 $name, 5, "$name: delete $deleteTimer from userattr Attributes";
+    Log3 $name, 5, "$name: delFromUserattr | delete $deleteTimer from userattr Attributes";
   }
 
   return;
@@ -994,10 +1041,10 @@ sub Timer_Check {
   my @sunsetValues = split(':' , sunset_abs($horizon));   # Sonnenuntergang (19:34:24) splitted in array
   my $state;
 
-  Log3 $name, 5, "$name: Check is running, Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
-  Log3 $name, 4, "$name: Check is running, drift $microseconds microSeconds";
+  Log3 $name, 5, "$name: Check | Sonnenaufgang $sunriseValues[0]:$sunriseValues[1]:$sunriseValues[2], Sonnenuntergang $sunsetValues[0]:$sunsetValues[1]:$sunsetValues[2]";
+  Log3 $name, 4, "$name: Check | drift $microseconds microSeconds";
 
-  foreach my $d (keys %{$hash->{READINGS}}) {
+  foreach my $d (sort keys %{$hash->{READINGS}}) {
     if ($d =~ /^Timer_\d+$/xms) {
       my @values = split(',' , $hash->{READINGS}->{$d}->{VAL});
       #Jahr  Monat Tag   Stunde Minute Sekunde Gerät              Aktion Mo Di Mi Do Fr Sa So aktiv Offset
@@ -1006,7 +1053,7 @@ sub Timer_Check {
 
       my $set = 1;
 
-      if ($values[15] == 1) {                                 # input checkbox "aktiv"
+      if ($values[15] == 1) {   # input checkbox "aktiv"
         $cnt_activ++;
 
         if ($values[3] eq $designations[4]) { $values[3] = $sunriseValues[0]; } # Stunde | Sonnenaufgang -> pos 0 array
@@ -1015,22 +1062,29 @@ sub Timer_Check {
         if ($values[4] eq $designations[5]) { $values[4] = $sunsetValues[1]; }  # Minute | Sonnenuntergang -> pos 1 array
 
         if ($values[16] && $values[16] != 0) {                # input numbre "Offset"
-          Log3 $name, 5, "$name: $d  must calculated, hh:$values[3] mm:$values[4] | offset: $values[16]";
-          my $calcTime = $values[4] + $values[16];  # Min + Offset
+          Log3 $name, 4, "$name: Check | $d offset must calculated, hh:$values[3] mm:$values[4] | offset: $values[16]";
 
-          if ($calcTime > 59) {
-            #Log3 $name, 5, "$name: $d  calcTime >59 =".$calcTime;
-            $values[3] += 1;
-            $calcTime -= 60;
-          } elsif($calcTime < 0) {
-            #Log3 $name, 5, "$name: $d  calcTime <0 =".$calcTime;
-            $values[3] -= 1;
-            $calcTime = (60 + $calcTime);
-          } else {
-            #Log3 $name, 5, "$name: $d  calcTime =".$calcTime;
-          }
-          $values[4] = $calcTime;
-          Log3 $name, 5, "$name: $d  new  calculated, hh:$values[3] mm:$values[4]";
+          my @timestamp_values = split( /-|\s|:/xms , TimeNow() );  # Time now splitted from -> 2016-02-16 19:34:24
+          my ($sec, $min, $hour, $mday, $month, $year) = ($timestamp_values[5], $timestamp_values[4], $timestamp_values[3], $timestamp_values[2], $timestamp_values[1], $timestamp_values[0]);
+
+          if($values[0] eq $description_all) { $values[0] = $year; }
+          if($values[1] eq $description_all) { $values[1] = $month; }
+          if($values[2] eq $description_all) { $values[2] = $mday; }
+          if($values[3] eq $description_all) { $values[3] = $hour; }
+          if($values[4] eq $description_all) { $values[4] = $min; }
+
+          my $Timestamp = fhemTimeLocal($values[5], $values[4], $values[3], $values[2], $values[1]-1, $values[0] - 1900);
+          Log3 $name, 5, "$name: Check | $d input timestamp             " . $Timestamp;
+          $Timestamp += $values[16] * 60;
+          Log3 $name, 5, "$name: Check | $d input timestamp with offset " . $Timestamp;
+          Log3 $name, 5, "$name: Check | $d switching time readable " . FmtDateTime($Timestamp);
+
+          @timestamp_values = split( /-|\s|:/xms , FmtDateTime($Timestamp) );  # Time now splitted from -> 2016-02-16 19:34:24
+          ($sec, $min, $hour, $mday, $month, $year) = ($timestamp_values[5], $timestamp_values[4], $timestamp_values[3], $timestamp_values[2], $timestamp_values[1], $timestamp_values[0]);
+
+          $values[3] = $hour;
+          $values[4] = $min;
+          Log3 $name, 4, "$name: Check | $d offset is   calculated, hh:$values[3]   mm:$values[4]";
         }
 
         for (my $i = 0;$i < 5;$i++) {                                           # Jahr, Monat, Tag, Stunde, Minute
@@ -1042,16 +1096,16 @@ sub Timer_Check {
         if ($values[5] ne '00' && $timestamp_values[5] ne $values[5]) { $set = 0; } # Sekunde (Intervall 10)
         if ($values[5] ne '00') { $intervall = 10; }
 
-        Log3 $name, 5, "$name: $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7).' ('.$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
+        Log3 $name, 5, "$name: Check | $d - set=$set intervall=$intervall dayOfWeek=$dayOfWeek column array=".(($dayOfWeek*1) + 7).' ('.$values[($dayOfWeek*1) + 7].") $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5]";
 
         if ($set == 1) {
-          Log3 $name, 4, "$name: $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
+          Log3 $name, 4, "$name: Check | $d - set $values[6] $values[7] ($dayOfWeek, $values[0]-$values[1]-$values[2] $values[3]:$values[4]:$values[5])";
           if ($values[7] ne 'DEF') { CommandSet($hash, $values[6].' '.$values[7]); }
           # $state = "$d set $values[6] $values[7] accomplished";
           readingsSingleUpdate($hash, 'state' , "$d set $values[6] $values[7] accomplished", 1);
           if ($values[7] eq 'DEF') {
             if (AttrVal($name, $d.'_set', undef)) {
-              Log3 $name, 5, "$name: $d - exec at command: ".AttrVal($name, $d.'_set', undef);
+              Log3 $name, 5, "$name: Check | $d - exec at command: ".AttrVal($name, $d.'_set', undef);
               my $ret = AnalyzeCommandChain(undef, SemicolonEscape(AttrVal($name, $d.'_set', undef)));
               if ($ret) { Log3 $name, 3, "$name: $d\_set - ERROR: $ret"; }
             } else {
@@ -1108,10 +1162,10 @@ sub Timer_PawList {
       } elsif ($values[7] eq 'DEF') {
         my $Timer_set_attr = AttrVal($name, $d.'_set', '');
         if ($Timer_set_attr ne '') {
-          Log3 $name, 5, "$name: Timer_PawList | look at DEF: ".$Timer_set_attr;
+          Log3 $name, 5, "$name: PawList | look at DEF: ".$Timer_set_attr;
           $Timer_set_attr =~ /(get|set)\s(\w+)\s/xms;
           if ($2) {
-            Log3 $name, 5, "$name: Timer_PawList | found in DEF: ".$2;
+            Log3 $name, 5, "$name: PawList | found in DEF: ".$2;
             if (not grep { /$2/xms } $associatedWith) {
               $associatedWith = $associatedWith eq '' ? $2 : $associatedWith.','.$2;
             }
@@ -1122,7 +1176,7 @@ sub Timer_PawList {
     }
   }
 
-  Log3 $name, 5, "$name: Timer_PawList | Reading .associatedWith is: ".$associatedWith;
+  Log3 $name, 5, "$name: PawList | Reading .associatedWith is: ".$associatedWith;
   if ($associatedWith ne '') {
     CommandSetReading(undef, "$name .associatedWith $associatedWith");  
   } else {
