@@ -1,3 +1,10 @@
+2023-12-18 - update timer (#12)
+
+* Update 88_Timer.pm
+
+- extension, offset function
+- fix warning & rename varible
+- revised version
 2023-12-18 - Merge branch 'master' into pre-release
 2023-12-08 - Update 88_Timer.pm
 
