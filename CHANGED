@@ -1,8 +1,19 @@
-2023-11-27 - Add renovate.json (#11)
+2023-12-18 - Merge branch 'master' into pre-release
+2023-12-08 - Update 88_Timer.pm
 
-Co-authored-by: renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>
-2022-01-04 - Merge branch 'pre-release'
-2022-01-04 - Merge branch 'pre-release' of https://github.com/fhem/Timer into master
+- revised version with offset function
+2023-12-03 - Update 88_Timer.pm
+
+- fix offset
+- mark warnings
+2023-11-27 - Update 88_Timer.pm
+
+- fix warning & rename varible
+2023-11-27 - Merge branch 'master' into pre-release
+2023-11-27 - Update 88_Timer.pm
+
+- extension, offset function
+2022-01-04 - Automaitc updated controls and CHANGED
 
 2022-01-04 - Update 88_Timer.pm
 
