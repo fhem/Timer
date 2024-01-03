@@ -23,8 +23,6 @@ use warnings;
 use Time::HiRes qw(gettimeofday);
 use FHEM::Meta;
 
-our $VERSION_Timer = '2024-01-03';
-
 my @action = qw(on off DEF);
 my @names;
 my @designations;
@@ -113,8 +111,6 @@ sub Timer_Define {
     ### Attributes ###
     if (!defined AttrVal($name, 'room', undef)) { CommandAttr($hash,"$name room $typ"); }       # set room, if only undef --> new def
   }
-
-  $hash->{versionModule} = $VERSION_Timer;
 
   ### default value´s ###
   readingsBeginUpdate($hash);
@@ -1356,6 +1352,7 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
 <b><i><u>Hints:</u></i></b><br>
 <ul><li>Entries in the system logfile like: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> say that the timer has recalculated the time.</li></ul>
 <ul><li>The offset function can only be activated at sunrise (SR) and sunset (SS).</li></ul>
+<ul><li>To implement a switching group, you can combine the timer module with the structure module.</li></ul>
 
 </ul>
 =end html
@@ -1484,6 +1481,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
 <b><i><u>Hinweise:</u></i></b><br>
 <ul><li>Eintr&auml;ge im Systemlogfile wie: <code>2019.09.20 22:15:01 3: Timer: time difference too large! interval=59, Sekunde=01</code> sagen aus, das der Timer die Zeit neu berechnet hat.</li></ul>
 <ul><li>Die Funktion Offset ist nur bei Sonnenaufgang (SA) und Sonnenuntergang (SU) aktivierbar.</li></ul>
+<ul><li>Um eine Gruppenschaltung umzusetzen, so kann man das Timer Modul mit dem structure Modul kombinieren.</li></ul>
 </ul>
 =end html_DE
 
