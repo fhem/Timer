@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 00000 2023-12-08 20:38:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 0 2024-01-03 20:38:27Z HomeAuto_User $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -22,7 +22,7 @@ use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
 
-our $VERSION_Timer = '2023-12-08';
+our $VERSION_Timer = '2024-01-03';
 
 my @action = qw(on off DEF);
 my @names;
@@ -85,6 +85,9 @@ sub Timer_Define {
   my ($cmd, $ret);
   my ($autocreateFilelog, $autocreateHash, $autocreateName, $autocreateDeviceRoom, $autocreateWeblinkRoom) = ('%L' . $name . '-%Y-%m.log', undef, 'autocreate', $typ, $typ);
   $hash->{NOTIFYDEV} = "global,TYPE=$typ";
+
+  # Anzeigen der Modulversion (Internal FVERSION) über FHEM::Meta, Variable in META.json Abschnitt erforderlich: "version": "v1.0.0", siehe https://wiki.fhem.de/wiki/Meta
+  return $@ unless ( FHEM::Meta::SetInternals($hash) );
 
   if (@arg != 2) { return "Usage: define <name> $name"; }
 
@@ -714,7 +717,7 @@ sub Timer_FW_Detail {
         $html.= "<td align=\"center\"><input align=\"center\" ";
         if($select_Value[3] eq $designations[4] || $select_Value[3] eq $designations[5] || $select_Value[4] eq $designations[4] || $select_Value[4] eq $designations[5]) { # SA -> 4 SU -> 5
           if (not $select_Value[16]) { $select_Value[16] = 0; }
-          $html.= "style='width:4em' type=\"number\" min=\"-1440\" max=\"1440\" onkeypress=\"return isValidInputKey(event);\" value=\"".$select_Value[16]."\" ";
+          $html.= "style='width:4em; text-align:right;' type=\"number\" min=\"-1440\" max=\"1440\" onkeypress=\"return isValidInputKey(event);\" value=\"".$select_Value[16]."\" ";
         } else {
           $html.= "style='width:4em; display:none' value=\"0\" ";
         }
@@ -1483,5 +1486,90 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
 </ul>
 =end html_DE
 
-# Ende der Commandref
+=for :application/json;q=META.json 88_Timer.pm
+{
+  "author": [
+    "HomeAuto_User <>",
+    "elektron-bbs"
+  ],
+  "description": "timer for executing actions with only one InternalTimer",
+  "dynamic_config": 1,
+  "keywords": [
+    "Timer",
+    "fhem-sonstige-systeme"
+  ],
+  "license": [
+    "GPL_2"
+  ],
+  "meta-spec": {
+    "url": "https://metacpan.org/pod/CPAN::Meta::Spec",
+    "version": 2
+  },
+  "name": "FHEM::Timer",
+  "prereqs": {
+    "runtime": {
+      "requires": {
+        "FHEM": 5.00918623,
+        "FHEM::Meta": 0.001006,
+        "JSON::PP": 0,
+        "Time::HiRes": 0,
+        "lib::SD_Protocols": "0",
+        "perl": 5.018,
+        "strict": "0",
+        "warnings": "0"
+      }
+    },
+    "develop": {
+      "requires": {
+        "lib::SD_Protocols": "0",
+        "strict": "0",
+        "warnings": "0"
+      }
+    }
+  },
+  "release_status": "stable",
+  "resources": {
+    "bugtracker": {
+      "web": "https://github.com/fhem/Timer/issues"
+    },
+    "repository": {
+      "x_master": {
+        "type": "git",
+        "url": "https://github.com/fhem/Timer",
+        "web": "https://github.com/fhem/Timer/blob/master/FHEM/88_Timer.pm"
+      },
+      "type": "",
+      "url": "https://github.com/fhem/Timer",
+      "web": "https://github.com/fhem/Timer/blob/master/FHEM/88_Timer.pm",
+      "x_branch": "master",
+      "x_filepath": "FHEM/",
+      "x_raw": "https://github.com/fhem/Timer/blob/master/FHEM/88_Timer.pm",
+      "x_dev": {
+        "type": "git",
+        "url": "https://github.com/fhem/Timer.git",
+        "web": "https://github.com/fhem/Timer/blob/pre-release/FHEM/88_Timer.pm",
+        "x_branch": "pre-release",
+        "x_filepath": "FHEM/",
+        "x_raw": "https://raw.githubusercontent.com/fhem/Timer/pre-release/FHEM/88_Timer.pm"
+      }
+    },
+    "x_commandref": {
+      "web": "https://commandref.fhem.de/#Timer"
+    },
+    "x_wiki": {
+      "web": "https://wiki.fhem.de/wiki/Timer"
+    }
+  },
+  "version": "2024-01-03",
+  "x_fhem_maintainer": [
+    "HomeAuto_User",
+    "elektron-bbs"
+  ],
+  "x_fhem_maintainer_github": [
+    "HomeAutoUser",
+    "elektron-bbs"
+  ]
+}
+=end :application/json;q=META.json
+
 =cut
