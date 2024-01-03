@@ -21,6 +21,7 @@ package main;
 use strict;
 use warnings;
 use Time::HiRes qw(gettimeofday);
+use FHEM::Meta;
 
 our $VERSION_Timer = '2024-01-03';
 
@@ -68,7 +69,7 @@ sub Timer_Initialize {
   $hash->{FW_deviceOverview} = 1;
   $hash->{FW_addDetailToSummary} = 1;            # displays html in fhemweb room-view
 
-  return;
+  return FHEM::Meta::InitMod( __FILE__, $hash );
 }
 
 ##########################
@@ -1527,6 +1528,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
       }
     }
   },
+  "version": "v24.1.3",
   "release_status": "stable",
   "resources": {
     "bugtracker": {
@@ -1560,7 +1562,6 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
       "web": "https://wiki.fhem.de/wiki/Timer"
     }
   },
-  "version": "2024-01-03",
   "x_fhem_maintainer": [
     "HomeAuto_User",
     "elektron-bbs"
