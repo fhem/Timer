@@ -1,5 +1,5 @@
 #################################################################
-# $Id: 88_Timer.pm 0 2024-01-03 20:38:27Z HomeAuto_User $
+# $Id: 88_Timer.pm 0 2024-12-15 13:19:27Z elektron-bbs $
 #
 # The module is a timer for executing actions with only one InternalTimer.
 # Github - FHEM Home Automation System
@@ -46,7 +46,7 @@ sub Timer_Initialize {
 
   $hash->{AttrFn}       = 'Timer_Attr';
   $hash->{AttrList}     = 'disable:0,1 '.
-                          'Offset_Horizon:REAL,CIVIL,NAUTIC,ASTRONOMIC '.
+                          'Offset_Horizon:HORIZON=-0.833,REAL,CIVIL,NAUTIC,ASTRONOMIC '.
                           'Show_DeviceInfo:alias,comment '.
                           'Timer_preselection:on,off '.
                           'Table_Border_Cell:on,off '.
@@ -1241,6 +1241,7 @@ In the drop-down list, the numerical values ​​for year / month / day / hour 
 In addition, you can use the selection <code> SR </code> and <code> SS </code> in the hour and minute column. These rumps represent the time of sunrise and sunset.<br>
 For example, if you select at minute <code> SS </code>, you have set the minutes of the sunset as the value. As soon as you set the value to <code> SS </code> at hour and minute
 the timer uses the calculated sunset time at your location. <u><i>(For this calculation the FHEM global attributes latitude and longitude are necessary!)</u></i>
+As soon as sunrise or sunset is selected for a timer, an additional column "Offset" is displayed. An offset in minutes in the range of -1440 to 1440 can be entered there.
 
 <br><br>
 <u>Programmable actions are currently:</u><br>
@@ -1338,7 +1339,9 @@ This makes it possible, for example, to have a timer run every Sunday at 15:30:0
   The module does not process FHEM command or PERL code from the user. <code><font color="red">*</font color> </code></li><a name=" "></a></ul><br>
   <ul><li><a name="Offset_Horizon">Offset_Horizon</a><br>
   Different elevation angles are used to calculate sunrise and sunset times.<br>
-  (REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, default REAL)</li><a name=" "></a></ul><br>
+  (HORIZON = -0.833°REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, default REAL)<br>
+  Most sites on the Internet prefer an offset of -0.833°.
+  </li><a name=" "></a></ul><br>
   <ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
   Shows the additional information (alias | comment, default off)</li><a name=" "></a></ul><br>
   <br>
@@ -1370,6 +1373,7 @@ In der DropDown-Liste stehen jeweils die Zahlenwerte f&uuml;r Jahr  / Monat / Ta
 Zus&auml;tzlich k&ouml;nnen Sie in der Spalte Stunde und Minute die Auswahl <code>SA</code> und <code>SU</code> nutzen. Diese K&uuml;rzel stehen f&uuml;r den Zeitpunkt Sonnenaufgang und Sonnenuntergang.<br>
 Wenn sie Beispielsweise bei Minute <code>SU</code> ausw&auml;hlen, so haben Sie die Minuten des Sonnenuntergang als Wert gesetzt. Sobald Sie bei Stunde und Minute den Wert auf <code>SU</code>
 stellen, so nutzt der Timer den errechnenten Zeitpunkt Sonnenuntergang an Ihrem Standort. <u><i>(F&uuml;r diese Berechnung sind die FHEM globalen Attribute latitude und longitude notwendig!)</u></i>
+Sobald bei einem Timer Sonnenaufgang oder Sonnenuntergang ausgewählt ist, wird eine zusätzliche Spalte "Offset" angezeigt. Dort kann ein Offset in Minuten im Bereich von -1440 bis 1440 eingetragen werden.
 
 <br><br>
 <u>Programmierbare Aktionen sind derzeit:</u><br>
@@ -1467,7 +1471,9 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
   verarbeitet das Modul kein Kommando oder PERL-Code vom Benutzer. <code> <font color="red">*</font color> </code></li><a name=" "></a></ul><br>
   <ul><li><a name="Offset_Horizon">Offset_Horizon</a><br>
   F&uuml;r die Berechnung der Zeiten von Sonnenaufgang und Sonnenuntergang werden verschiedene H&ouml;henwinkel verwendet.<br>
-  (REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, Standard REAL)</li><a name=" "></a></ul><br>
+  (HORIZON = -0.833°, REAL = 0°, CIVIL = -6°, NAUTIC = -12°, ASTRONOMIC = -18°, Standard REAL)<br>
+  Die meisten Seiten im Internet bevorzugen einen Offset von -0.833°.
+  </li><a name=" "></a></ul><br>
   <ul><li><a name="Show_DeviceInfo">Show_DeviceInfo</a><br>
   Blendet die Zusatzinformation ein. (alias | comment, standard off)</li><a name=" "></a></ul><br>
   <br>
@@ -1526,7 +1532,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
       }
     }
   },
-  "version": "v24.1.3",
+  "version": "v24.12.15",
   "release_status": "stable",
   "resources": {
     "bugtracker": {
