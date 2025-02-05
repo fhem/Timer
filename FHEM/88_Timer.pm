@@ -345,6 +345,8 @@ sub Timer_Get {
     if ($cmd2 eq 'yes') {
       my $error = '';
       my $line = 0;
+      my $newReading = '';
+      my $msg = '';
       my @lines_readings;
       my @attr_values;
       my @attr_values_names;
@@ -353,15 +355,17 @@ sub Timer_Get {
       open (my $InputFile, '<' ,"./FHEM/lib/$name".'_conf.txt') || return "ERROR: No file $name".'_conf.txt found in ./FHEM/lib directory from FHEM!';
         while (<$InputFile>) {
           $line++;
+          # 0       ,1   ,2   ,3   ,4 ,5 ,6 ,7          ,8  ,9,0,1,2,3,4,5,6,7
           # Timer_04,alle,alle,alle,12,00,00,Update FHEM,Def,1,0,0,0,0,0,0,1       - alt ohne Offset
           # Timer_01,alle,alle,alle,04,01,00,Update FHEM,DEF,1,1,1,1,1,1,1,1,-1440 - neu mit Offset
           if ($_ =~ /^Timer_\d{2},/xms) {
             chomp ($_);                                   # Zeilenende entfernen
                         $_ =~ s/,Def,/,DEF,/gxms if ($_ =~ /,Def,/xms); # Compatibility modify Def to DEF
-            push(@lines_readings,$_);                                   # lines in array
+            # push(@lines_readings,$_);                                   # lines in array
             my @values = split(',',$_);                                 # split line in array to check
             # $error.= "Number of variables not equal to 17.\n" if (scalar(@values) != 16);
             push(@attr_values_names, $values[0].'_set') if($values[8] eq 'DEF');
+            $newReading = '';
             for (my $i=0;$i<@values;$i++) {
               $error .= "Too few variables in this line (minimum 17 allowed). \n" if (scalar(@values) < 17); # kompatibel zur Version ohne Offset
               $error .= "Too many variables on this line (maximum 18 allowed). \n" if (scalar(@values) > 18); # mit Offset
@@ -378,6 +382,16 @@ sub Timer_Get {
                 }
               }
               if ($i == 6 && ($values[$i] > 50 || $values[$i] % 10 != 0 || $values[$i] !~ /^\d+$/xms)) { $error.= 'second '.$values[$i]." is not in range, must be 00, 10, 20, 30, 40 or 50 \n"; }
+              if ($i == 7 && $values[8] ne 'DEF' && IsDevice($values[7]) == 0) { # Gerät oder Bezeichnung
+                if ($values[16] == 1) {
+                  Log3 $name, 3, "$name: loadTimers $values[0], device $values[7] not found, set to not active";
+                  $msg .= "$values[0], device $values[7] not found, set to not active<br>";
+                  $values[16] = 0;
+                } elsif ($values[16] == 0) {
+                  Log3 $name, 3, "$name: loadTimers $values[0], device $values[7] not found, is not active";
+                  $msg .= "$values[0], device $values[7] not found, is not active<br>";
+                }
+              }
               if ($i == 8 && not grep { $values[$i] eq $_ } @action) { $error.= 'action '.$values[$i]." is not allowed\n"; }
               if ($i >= 9 && $i <= 16 && $values[$i] ne '0' && $values[$i] ne '1') { $error.= 'weekday or active '.$values[$i]." is not 0 or 1 \n"; }
               if ($i == 17 && ($values[$i] < -1440 || $values[$i] > 1440 || $values[$i] !~ /^-?\d+$/xms)) { $error .= 'Offset '.$values[$i]." is not in range from -1440 to 1440 \n"; }
@@ -387,8 +401,11 @@ sub Timer_Get {
                 if ($error =~ /-\s(all\s|alle\s|SA\s|SU\s|SR\s|SS\s)/xms) { $error.= "\nYour language is wrong! ($language)"; }
                 return "ERROR: your file is NOT valid!\n\nline $line\n$error";
               }
+              $newReading .= $values[$i];
+              if ($i < @values - 1) {$newReading .= ',';}
             }
           }
+          push(@lines_readings, $newReading);                                   # push lines in array
 
           if ($_ =~ /^Timer_\d{2}_set,/xms) {
             $Timer_cnt_name++;
@@ -414,10 +431,12 @@ sub Timer_Get {
       foreach my $f (sort keys %{$attr{$name}}) {              # delete all attributes Timer_xx_set ...
         if ($f =~ /^Timer_(\d+)_set$/xms) { CommandDeleteAttr($hash, $name.' '.$f); }
       }
+      $hash->{loadTimers} = 1; # Log-Ausgabe unterdrücken
       my @userattr_values = split(' ', AttrVal($name, 'userattr', 'none'));
       for (my $i=0;$i<@userattr_values;$i++) {                 # delete userattr values Timer_xx_set:textField-long ...
         if ($userattr_values[$i] =~ /^Timer_(\d+)_set:textField-long$/xms) { delFromDevAttrList($name, $userattr_values[$i]); }
       }
+      delete($hash->{'loadTimers'});
       foreach my $e (@lines_readings) {                        # write new readings
         if ($e =~ /^Timer_\d{2},/xms) { readingsSingleUpdate($hash, substr($e,0,8) , substr($e,9,length($e)-9), 1); }
       }
@@ -430,10 +449,13 @@ sub Timer_Get {
       }
 
       Timer_PawList($hash);                                    # list, Probably associated with
-
       readingsSingleUpdate($hash, 'state' , 'Timers loaded', 1);
       FW_directNotify("FILTER=(room=$room|$name)", "#FHEMWEB:WEB", "location.reload('true')", '');
       Timer_Check($hash);
+      if ($msg ne '') { # PopUp ausgeben
+        $hash->{msg} = $msg;
+        InternalTimer(gettimeofday() + 1, 'Timer_OkDialog', $hash); # msg 1 Sekunde verzögert ausgeben (wegen location.reload)
+      }
 
       return;
     }
@@ -441,6 +463,18 @@ sub Timer_Get {
 
   return "Unknown argument $cmd, choose one of $list";
 }
+
+sub Timer_OkDialog {
+  my ($hash) = @_;
+  my $name = $hash->{NAME};
+  my $msg = $hash->{msg};
+  # Log3 $name, 1, "$name: Timer_OkDialog $msg";
+  RemoveInternalTimer($hash, 'Timer_OkDialog');
+  FW_directNotify("FILTER=$name", '#FHEMWEB:WEB', "FW_okDialog('$msg')", "");
+  delete($hash->{'msg'});
+  return;
+}
+
 
 #####################
 sub Timer_Attr {
@@ -479,7 +513,9 @@ sub Timer_Attr {
     }
 
     if ($attrName =~ /^Timer_\d{2}_set$/xms) {
-      Log3 $name, 3, "$name: Attr | Attributes $attrName deleted";
+      if (defined $hash->{loadTimers}) { # nicht bei get loadTimers
+        Log3 $name, 3, "$name: Attr | Attributes $attrName deleted";
+      }
       InternalTimer(gettimeofday()+0.1, 'Timer_PawList', $hash);
     }
   }
@@ -918,7 +954,6 @@ sub FW_pushed_savebutton {
       if (IsDevice($rowsField[$i]) == 1) {
         Log3 $name, 5, "$name: FW_pushed_savebutton | ".$rowsField[$i].' is checked and exists';
       }
-
       if ( (IsDevice($rowsField[$i]) == 0) && ($rowsField[$i+1] eq 'on' || $rowsField[$i+1] eq 'off') ) {
         Log3 $name, 5, "$name: FW_pushed_savebutton | ".$rowsField[$i].' is NOT exists';
         return 'ERROR: device not exists or no description! NO timer saved!';
@@ -1532,7 +1567,7 @@ Damit ist es m&ouml;glich, einen Timer beispielsweise nur jeden Sonntag um 15:30
       }
     }
   },
-  "version": "v24.12.15",
+  "version": "v25.01.30",
   "release_status": "stable",
   "resources": {
     "bugtracker": {
